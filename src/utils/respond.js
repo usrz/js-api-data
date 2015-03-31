@@ -32,7 +32,7 @@ exports = module.exports = function respond(prefix) {
     // Add a "lastModified" function
     res.lastModified = function lastModified(date) {
       if (!(date instanceof Date)) date = new Date(date);
-      res.append('Last-Modified', date);
+      res.append('Last-Modified', date.toUTCString());
       return res;
     }
 
@@ -79,6 +79,7 @@ exports = module.exports = function respond(prefix) {
           }
           // Add a Link header
           if (object.href) {
+            _location.call(this, object.href);
             _links.call(this, { self: object.href });
           }
         }

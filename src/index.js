@@ -30,7 +30,7 @@ router.param('domain_uuid', function(req, res, next, uuid) {
  * ========================================================================== */
 
 /* Create a new domain */
-router.post('/', function (req, res) {
+router.post('/', function (req, res, next) {
   // Validate and normalize parameters...
   var domain = req.body || {};
   if (!domain.name) return next(400);

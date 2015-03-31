@@ -9,6 +9,7 @@ function error(logger) {
 
   // Created by "error(req, res)"
   return function handler(error, request, response, next) {
+    console.log("HANDLED!!!");
 
     // ID of the request (if any or new)
     var id = request.uuid || uuid.v4();

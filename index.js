@@ -10,43 +10,69 @@ var express = require('express');
 var morgan = require('morgan')
 var app = express();
 
-function error(request, response) {
-  return function(err) {
-    console.log("ERR", err);
-    logger.warn("%j", err);
-    response.status(500).end();
-  }
-}
-
-var uuid = require('uuid');
-app.use(function(req, res, next) {
-  var id = req.get("X-USRZ-Request-UUID");
-  if (! id) id = uuid.v4();
-  req.uuid = id;
-  next();
-});
+// var uuid = require('uuid');
+// app.use(function(req, res, next) {
+//   var id = req.get("X-USRZ-Request-ID");
+//   if (! id) id = uuid.v4();
+//   req.id = id;
+//   next();
+// });
 
 app.use(require('./src/utils/respond')());
 
-morgan.token('uuid', function(req) {
-  return req.uuid;
-})
+// morgan.token('uuid', function(req) {
+//   return req.uuid;
+// })
 
 app.set('json spaces', 2);
 
-app.use(morgan(':date[iso] [:remote-addr] ":method :url HTTP/:http-version" :status :res[content-length] :response-time (:uuid)'));
-app.use(parser.urlencoded({extended: true}));
-app.use(parser.json());
+//app.use(morgan(':date[iso] [:remote-addr] ":method :url HTTP/:http-version" :status :res[content-length] :response-time (:uuid)'));
+//app.use(parser.urlencoded({extended: true}));
+//app.use(parser.json());
 
-app.use('/domains', require('./src/index'));
+var S = require('./src/express/statuses');
 
-/* Anything else is a 404 */
-app.use(function(req, res, next) {
-  return next(404);
+//app.use('/domains', require('./src/index'));
+//console.log(S);
+
+app.get('/1', function(req, res, next) {
+  next(S.NOT_FOUND);
 });
 
-/* Last one is an error */
-app.use(require('./src/utils/error')());
+app.get('/2', function(req, res, next) {
+  next(S.NOT_FOUND("The file you mentioned was not found"));
+});
+
+app.get('/3', function(req, res, next) {
+  next(S.NOT_FOUND({details: "Some details"}));
+});
+
+app.get('/4', function(req, res, next) {
+  next(S.NOT_FOUND("override message", {details: "Some more details"}));
+});
+
+app.get('/5', function(req, res, next) {
+  next(404);
+});
+
+app.get('/6', function(req, res, next) {
+  next("A simple error...");
+});
+
+app.get('/7', function(req, res, next) {
+  var e = new Error("This shall be thrown");
+  e.details = { 'some' : 'error details' };
+  throw e;
+});
+
+
+var statuses = require('statuses');
+app.use(require('./src/express/errors')({logger: console.log}));
+
+/* Anything else is a 404 */
+// app.use([function(req, res, next) {
+//   return next(404);
+// }, require('./src/utils/error')()]);
 
 
 var server = app.listen(3000, function () {

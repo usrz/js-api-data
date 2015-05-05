@@ -1,9 +1,4 @@
-var logger = require("./src/utils/logger");
 var util = require("util");
-
-process.on('uncaughtException', function(exception) {
-  logger.error('Uncaught exception: %s', exception.stack);
-});
 
 var parser = require('body-parser');
 var express = require('express');
@@ -66,20 +61,17 @@ app.get('/7', function(req, res, next) {
 });
 
 
-var statuses = require('statuses');
-app.use(require('./src/express/errors')({logger: console.log}));
+// Error logging
+var errorlog = require('errorlog')();
+app.use(require('express-errorlog')());
 
-/* Anything else is a 404 */
-// app.use([function(req, res, next) {
-//   return next(404);
-// }, require('./src/utils/error')()]);
-
+process.on('uncaughtException', function(exception) {
+  errorlog('Uncaught exception', exception);
+});
 
 var server = app.listen(3000, function () {
-
   var host = server.address().address
   var port = server.address().port
-
-  console.log('Example app listening at http://%s:%s', host, port)
+  errorlog('Example app listening at http://%s:%s', host, port)
 
 })

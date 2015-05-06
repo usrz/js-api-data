@@ -6,19 +6,28 @@ const util = require('util');
 const DbClient = require('./db-client');
 const UUID = require('./uuid');
 
-const INSERT_SQL = 'INSERT INTO "encryption_keys" '
-                 + '("init_vector", "encrypted_key", "auth_tag") '
-                 + 'VALUES ($1::BYTEA, $2::BYTEA, $3::BYTEA) '
-                 + 'RETURNING *';
+const INSERT_SQL = 'INSERT INTO "encryption_keys" ("encrypted_key") VALUES ($1::BYTEA) RETURNING *';
 const SELECT_ALL_SQL = 'SELECT * FROM "encryption_keys"';
 const SELECT_SQL = SELECT_ALL_SQL + ' WHERE uuid=$1';
 const DELETE_SQL = 'DELETE FROM "encryption_keys" WHERE uuid=$1';
+
+// v1 (buffer) v2 (string) v3 (json) encryption:
+// - AES-256-GCM with AAD using Vx_TAG
+// -- first byte is "0x01", "0x02" or "0x03" (the tag below)
+// -- followed by 12 bytes of initialization vector
+// -- followed by 16 bytes of authentication tag
+// -- followed by N bytes (where N>1) of encrypted data
+const V1_TAG = new Buffer([0x01]);
+const V2_TAG = new Buffer([0x02]);
+const V3_TAG = new Buffer([0x03]);
 
 /* ========================================================================== *
  * OUR KEY CLASS (encrypts, decripts, hides key buffer)                       *
  * ========================================================================== */
 
 function Key(uuid, key, created_at, deleted_at) {
+  if (!(this instanceof Key)) return new Key(uuid, key, created_at, deleted_at);
+
   // Validate/normalize UUID
   this.uuid = uuid = UUID(uuid).toString();
 
@@ -31,51 +40,75 @@ function Key(uuid, key, created_at, deleted_at) {
   this.deleted_at = deleted_at || null;
 
   // Data encryption
-  this.encrypt = function encrypt(data, format) {
-    if ((! util.isBuffer(data)) && util.isObject(data)) data = new Buffer(JSON.stringify(data), 'utf8');
-    if (util.isString(data)) data = new Buffer(data, format || 'utf8');
-    if (! util.isBuffer(data)) throw new Error('Invalid data for encryption');
+  this.encrypt = function encrypt(data) {
+
+    // Default, buffers
+    var vx_tag = V1_TAG;
+
+    // Determine whatever we are given, is it a (non-buffer) Object?
+    if ((! util.isBuffer(data)) && util.isObject(data)) {
+      data = new Buffer(JSON.stringify(data), 'utf8');
+      vx_tag = V3_TAG;
+    }
+
+    // Is it a string (the format "base64", "hex", "ascii", ...) can be specifed
+    else if (util.isString(data)) {
+      data = new Buffer(data, 'utf8');
+      vx_tag = V2_TAG;
+    }
+
+    // No way, still not a buffer, forget it!
+    else if (! util.isBuffer(data)) throw new Error('Invalid data for encryption');
     if (data.length < 1) throw new Error('No data available to encrypt');
 
     // Encrypt the data
     var init_vector = crypto.randomBytes(12);
     var cipher = crypto.createCipheriv('aes-256-gcm', key, init_vector);
+    cipher.setAAD(vx_tag);
     cipher.write(data);
     cipher.end();
 
     var auth_tag = cipher.getAuthTag();
     var encrypted_data = cipher.read();
 
+    var buffer = new Buffer.concat([vx_tag, init_vector, auth_tag, encrypted_data]);
+
     // Return our encrypted data
-    return Object.freeze({
-      encryption_key: uuid,
-      init_vector: init_vector,
-      encrypted_data: encrypted_data,
-      auth_tag: auth_tag
-    });
+    return { key: uuid, data: buffer }
   }
 
   // Data decryption
-  this.decrypt = function decrypt(init_vector, encrypted_data, auth_tag, format) {
-
-    // If we were called with ({...}, "format")
-    if ((! util.isBuffer(init_vector)) && util.isObject(init_vector)) {
-      format = encrypted_data; // format is the second argument
-      auth_tag = init_vector.auth_tag;
-      encrypted_data = init_vector.encrypted_data;
-      init_vector = init_vector.init_vector;
-    }
+  this.decrypt = function decrypt(data) {
 
     // Validate what we have...
-    if (! util.isBuffer(init_vector)) throw new Error('Initialization vector must be a buffer');
-    if (! util.isBuffer(encrypted_data)) throw new Error('Encrypted data must be a buffer');
-    if (! util.isBuffer(auth_tag)) throw new Error('Authentication tag must be a buffer');
-    if (init_vector.length != 12) throw new Error('Initialization vector must be exactly 96 bits');
-    if (auth_tag.length != 16) throw new Error('Authentication tag must be exactly 128 bits');
-    if (encrypted_data.length < 1) throw new Error('No data available to decrypt');
+    if (! util.isBuffer(data)) throw new Error('Encrypted data must be a buffer');
+    if (data.length < 30) throw new Error('No data available to decrypt');
 
-    // Decrypt the data
+    // Version/format
+    var vx_tag = null;
+    var format = null;
+    if (data[0] == V1_TAG[0]) {
+      vx_tag = V1_TAG;
+      format = 'buffer';
+    } else if (data[0] == V2_TAG[0]) {
+      vx_tag = V2_TAG;
+      format = 'utf8';
+    } else if (data[0] == V3_TAG[0]) {
+      vx_tag = V3_TAG;
+      format = 'json';
+    } else {
+      throw new Error('Unsupported encryption version ' + data[0]);
+    }
+
+
+    // Extract IV, Auth Tag and real data
+    var init_vector    = data.slice(1, 13);
+    var auth_tag       = data.slice(13, 29);
+    var encrypted_data = data.slice(29);
+
+    // Decrypt
     var decipher = crypto.createDecipheriv('aes-256-gcm', key, init_vector);
+    decipher.setAAD(vx_tag);
     decipher.setAuthTag(auth_tag);
     decipher.write(encrypted_data);
     decipher.end();
@@ -84,9 +117,9 @@ function Key(uuid, key, created_at, deleted_at) {
     var data = decipher.read();
 
     // Return in whatever format we have
-    if ((! format) || (format === 'buffer')) return data;
+    if (format === 'buffer') return data;
     if (format === 'json') return JSON.parse(data.toString('utf8'));
-    return buffer.toString(format);
+    return data.toString(format);
   }
 
   this.equals = function equals(object) {
@@ -105,6 +138,8 @@ function Key(uuid, key, created_at, deleted_at) {
  * ========================================================================== */
 
 function KeyManager(key, roUri, rwUri) {
+  if (!(this instanceof KeyManager)) return new KeyManager(key, roUri, rwUri);
+
   // Wrap the global encryption key
   key = new Key(UUID.NULL, key);
 
@@ -123,15 +158,12 @@ function KeyManager(key, roUri, rwUri) {
   function newKey(row) {
     if (! row) return null;
 
-    var uuid          = row.uuid;
-    var init_vector   = row.init_vector;
-    var encrypted_key = row.encrypted_key;
-    var auth_tag      = row.auth_tag;
-    var created_at    = row.created_at;
-    var deleted_at    = row.deleted_at;
-    var decrypted_key = key.decrypt(init_vector, encrypted_key, auth_tag);
+    var uuid           = row.uuid;
+    var encrypted_key  = row.encrypted_key;
+    var created_at     = row.created_at;
+    var deleted_at     = row.deleted_at;
 
-    var k = new Key(uuid, decrypted_key, created_at, deleted_at);
+    var k = new Key(uuid, key.decrypt(encrypted_key), created_at, deleted_at);
 
     // Update our caches
     delete valid_keys[uuid];
@@ -149,16 +181,12 @@ function KeyManager(key, roUri, rwUri) {
 
       // New encryption key from random values
       var encryption_key = crypto.randomBytes(32);
-      var encrypted_key = key.encrypt(encryption_key);
-
-      // var init_vector = encrypted_key.init_vector;
-      var init_vector = "\\x" + encrypted_key.init_vector.toString('hex');
-      var encrypted_data = "\\x" + encrypted_key.encrypted_data.toString('hex');
-      var auth_tag = "\\x" + encrypted_key.auth_tag.toString('hex');
+      var encrypted_key = '\\x' + key.encrypt(encryption_key).data.toString('hex');
 
       // Store in the database
-      resolve(rwClient.query(INSERT_SQL, init_vector, encrypted_data, auth_tag)
+      resolve(rwClient.query(INSERT_SQL, encrypted_key)
         .then(function(result) {
+          if ((! result) || (! result.rows) || (! result.rows[0])) throw new Error('No results');
           return newKey(result.rows[0]);
         }));
     })
@@ -168,7 +196,7 @@ function KeyManager(key, roUri, rwUri) {
   this.load = function load(uuid) {
     return roClient.query(SELECT_SQL, uuid)
       .then(function(result) {
-        if ((! result) || (! result.rows[0])) return null;
+        if ((! result) || (! result.rows) || (! result.rows[0])) return null;
         return newKey(result.rows[0]);
       });
   }
@@ -181,7 +209,7 @@ function KeyManager(key, roUri, rwUri) {
       return query(SELECT_SQL + ' AND deleted_at IS NULL', uuid)
         .then(function(result) {
           // No valid result? Skip the rests
-          if ((! result) || (! result.rows[0])) return null;
+          if ((! result) || (! result.rows) || (! result.rows[0])) return null;
 
           // Actually delete the result
           return query(DELETE_SQL, uuid)
@@ -191,7 +219,7 @@ function KeyManager(key, roUri, rwUri) {
 
             .then(function(result) {
               // Return the old key, but with "deleted_at" set
-              if ((! result) || (! result.rows[0])) return null;
+              if ((! result) || (! result.rows) || (! result.rows[0])) return null;
               return newKey(result.rows[0]);
             })
         })
@@ -202,7 +230,7 @@ function KeyManager(key, roUri, rwUri) {
   this.loadAll = function loadAll() {
     return roClient.query(SELECT_ALL_SQL)
       .then(function(result) {
-        if ((! result) || (! result.rows)) return {};
+        if ((! result) || (! result.rows) || (! result.rows[0])) return {};
 
         var keys = {};
         for (var i = 0; i < result.rows.length; i ++) {

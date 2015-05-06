@@ -15,9 +15,7 @@ CREATE EXTENSION "uuid-ossp";
 
 CREATE TABLE "encryption_keys" (
   "uuid"          UUID                     NOT NULL DEFAULT uuid_generate_v4(),
-  "init_vector"   BYTEA                    NOT NULL,
   "encrypted_key" BYTEA                    NOT NULL,
-  "auth_tag"      BYTEA                    NOT NULL,
   "created_at"    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   "deleted_at"    TIMESTAMP WITH TIME ZONE          DEFAULT NULL
 );
@@ -31,9 +29,7 @@ CREATE FUNCTION "fn_encryption_keys_update_trigger" () RETURNS TRIGGER AS $$
 BEGIN
   -- Raise exception if attempting to update anything
   IF (OLD.uuid          != NEW.uuid)          OR
-     (OLD.init_vector   != NEW.init_vector)   OR
      (OLD.encrypted_key != NEW.encrypted_key) OR
-     (OLD.auth_tag      != NEW.auth_tag)      OR
      (OLD.created_at    != NEW.created_at)
   THEN
     RAISE EXCEPTION 'Attempting to update values of encryption key "%"', OLD.uuid;

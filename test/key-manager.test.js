@@ -214,4 +214,61 @@ describe('Encryption Key Manager', function() {
     .catch(done);
   });
 
+  it('should encrypt and decrypt a buffer with a key', function(done) {
+    var buffer = require('crypto').randomBytes(1024);
+    keyManager.get()
+      .then(function(key) {
+        var encrypted = key.encrypt(buffer);
+
+        expect(encrypted.key).to.equal(key.uuid);
+
+        var data = encrypted.data;
+        expect(data).to.be.instanceof(Buffer);
+        expect(data[0]).to.equal(0x01); // v1, buffer
+
+        var decrypted = key.decrypt(data);
+        expect(decrypted).to.eql(buffer);
+        done();
+      })
+      .catch(done);
+  })
+
+  it('should encrypt and decrypt a string with a key', function(done) {
+    var string = 'The quick brown fox jumped over the lazy dog!';
+    keyManager.get()
+      .then(function(key) {
+        var encrypted = key.encrypt(string);
+
+        expect(encrypted.key).to.equal(key.uuid);
+
+        var data = encrypted.data;
+        expect(data).to.be.instanceof(Buffer);
+        expect(data[0]).to.equal(0x02); // v2, string
+
+        var decrypted = key.decrypt(data);
+        expect(decrypted).to.equal(string);
+        done();
+      })
+      .catch(done);
+  })
+
+  it('should encrypt and decrypt a JSON object with a key', function(done) {
+    var object = { number: 1, string: 'The quick brown fox jumped over the lazy dog!', boolean: true };
+    keyManager.get()
+      .then(function(key) {
+        var encrypted = key.encrypt(object);
+
+        expect(encrypted.key).to.equal(key.uuid);
+
+        var data = encrypted.data;
+        expect(data).to.be.instanceof(Buffer);
+        expect(data[0]).to.equal(0x03); // v3, object
+
+        var decrypted = key.decrypt(data);
+        expect(decrypted).to.eql(object);
+        done();
+      })
+      .catch(done);
+  })
+
 });

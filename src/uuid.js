@@ -46,8 +46,6 @@ function UUID(data) {
     version = buffer[6] >> 4;
   }
 
-  this.version = version; this.variant = variant;
-
   // Immutable properties
   Object.defineProperties(this, {
     '_buffer': {

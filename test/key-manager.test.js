@@ -4,7 +4,7 @@ const expect = require('chai').expect;
 const KeyManager = require('../src/key-manager');
 const pg = require('pg');
 
-describe.only('Encryption Key Manager', function() {
+describe('Encryption Key Manager', function() {
 
   var file = require('path').resolve(__dirname, '../ddl.sql');
   var ddl = require('fs').readFileSync(file).toString('utf8');

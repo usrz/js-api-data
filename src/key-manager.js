@@ -175,6 +175,10 @@ function KeyManager(key, roUri, rwUri) {
     return k;
   }
 
+  /* ------------------------------------------------------------------------ *
+   * Exported methods                                                         *
+   * ------------------------------------------------------------------------ */
+
   // Generate and save a new encryption key
   this.generate = function generate() {
     return new Promise(function(resolve, reject) {
@@ -274,6 +278,22 @@ function KeyManager(key, roUri, rwUri) {
       return valid_keys[uuids[Math.floor(Math.random() * uuids.length)]];
     })
   };
+
+  // Encrypt some data (convenience method)
+  this.encrypt = function encrypt(data) {
+    return this.get().then(function(encryption_key) {
+      if (encryption_key == null) throw new Error('Encryption key not available');
+      return encryption_key.encrypt(data);
+    });
+  }
+
+  // Decrypt some data (convenience method)
+  this.decrypt = function decrypt(uuid, data) {
+    return this.get(uuid).then(function(encryption_key) {
+      if (encryption_key == null) throw new Error('Encryption key "' + uuid + '"not available');
+      return encryption_key.decrypt(data);
+    });
+  }
 
   // Freeze ourselves
   Object.freeze(this);

@@ -4,7 +4,7 @@ const expect = require('chai').expect;
 const KeyManager = require('../src/key-manager');
 const pg = require('pg');
 
-describe('Encryption Key Manager', function() {
+describe.only('Encryption Key Manager', function() {
 
   var file = require('path').resolve(__dirname, '../ddl.sql');
   var ddl = require('fs').readFileSync(file).toString('utf8');
@@ -214,61 +214,125 @@ describe('Encryption Key Manager', function() {
     .catch(done);
   });
 
-  it('should encrypt and decrypt a buffer with a key', function(done) {
-    var buffer = require('crypto').randomBytes(1024);
-    keyManager.get()
-      .then(function(key) {
-        var encrypted = key.encrypt(buffer);
+  /* ======================================================================== */
 
-        expect(encrypted.key).to.equal(key.uuid);
+  describe('Key Encryption', function() {
+    it('should encrypt and decrypt a buffer with a key', function(done) {
+      var buffer = require('crypto').randomBytes(1024);
+      keyManager.get()
+        .then(function(key) {
+          var encrypted = key.encrypt(buffer);
 
-        var data = encrypted.data;
-        expect(data).to.be.instanceof(Buffer);
-        expect(data[0]).to.equal(0x01); // v1, buffer
+          expect(encrypted.key).to.equal(key.uuid);
 
-        var decrypted = key.decrypt(data);
-        expect(decrypted).to.eql(buffer);
-        done();
-      })
-      .catch(done);
+          var data = encrypted.data;
+          expect(data).to.be.instanceof(Buffer);
+          expect(data[0]).to.equal(0x01); // v1, buffer
+
+          var decrypted = key.decrypt(data);
+          expect(decrypted).to.eql(buffer);
+          done();
+        })
+        .catch(done);
+    })
+
+    it('should encrypt and decrypt a string with a key', function(done) {
+      var string = 'The quick brown fox jumped over the lazy dog!';
+      keyManager.get()
+        .then(function(key) {
+          var encrypted = key.encrypt(string);
+
+          expect(encrypted.key).to.equal(key.uuid);
+
+          var data = encrypted.data;
+          expect(data).to.be.instanceof(Buffer);
+          expect(data[0]).to.equal(0x02); // v2, string
+
+          var decrypted = key.decrypt(data);
+          expect(decrypted).to.equal(string);
+          done();
+        })
+        .catch(done);
+    })
+
+    it('should encrypt and decrypt a JSON object with a key', function(done) {
+      var object = { number: 1, string: 'The quick brown fox jumped over the lazy dog!', boolean: true };
+      keyManager.get()
+        .then(function(key) {
+          var encrypted = key.encrypt(object);
+
+          expect(encrypted.key).to.equal(key.uuid);
+
+          var data = encrypted.data;
+          expect(data).to.be.instanceof(Buffer);
+          expect(data[0]).to.equal(0x03); // v3, object
+
+          var decrypted = key.decrypt(data);
+          expect(decrypted).to.eql(object);
+          done();
+        })
+        .catch(done);
+    })
   })
 
-  it('should encrypt and decrypt a string with a key', function(done) {
-    var string = 'The quick brown fox jumped over the lazy dog!';
-    keyManager.get()
-      .then(function(key) {
-        var encrypted = key.encrypt(string);
+  /* ======================================================================== */
 
-        expect(encrypted.key).to.equal(key.uuid);
+  describe('Convenience Methods Encryption', function() {
+    it('should encrypt and decrypt a buffer', function(done) {
+      var buffer = require('crypto').randomBytes(1024);
+      keyManager.encrypt(buffer)
+        .then(function(encrypted) {
+          expect(encrypted.key).to.be.a('string');
 
-        var data = encrypted.data;
-        expect(data).to.be.instanceof(Buffer);
-        expect(data[0]).to.equal(0x02); // v2, string
+          var data = encrypted.data;
+          expect(data).to.be.instanceof(Buffer);
+          expect(data[0]).to.equal(0x01); // v1, buffer
 
-        var decrypted = key.decrypt(data);
-        expect(decrypted).to.equal(string);
-        done();
-      })
-      .catch(done);
-  })
+          return keyManager.decrypt(encrypted.key, data);
+        })
+        .then(function(decrypted) {
+          expect(decrypted).to.eql(buffer);
+          done();
+        })
+        .catch(done);
+    })
 
-  it('should encrypt and decrypt a JSON object with a key', function(done) {
-    var object = { number: 1, string: 'The quick brown fox jumped over the lazy dog!', boolean: true };
-    keyManager.get()
-      .then(function(key) {
-        var encrypted = key.encrypt(object);
+    it('should encrypt and decrypt a string', function(done) {
+      var string = 'The quick brown fox jumped over the lazy dog!';
+      keyManager.encrypt(string)
+        .then(function(encrypted) {
+          expect(encrypted.key).to.be.a('string');
 
-        expect(encrypted.key).to.equal(key.uuid);
+          var data = encrypted.data;
+          expect(data).to.be.instanceof(Buffer);
+          expect(data[0]).to.equal(0x02); // v2, string
 
-        var data = encrypted.data;
-        expect(data).to.be.instanceof(Buffer);
-        expect(data[0]).to.equal(0x03); // v3, object
+          return keyManager.decrypt(encrypted.key, data);
+        })
+        .then(function(decrypted) {
+          expect(decrypted).to.equal(string);
+          done();
+        })
+        .catch(done);
+    })
 
-        var decrypted = key.decrypt(data);
-        expect(decrypted).to.eql(object);
-        done();
-      })
-      .catch(done);
-  })
+    it('should encrypt and decrypt a JSON object', function(done) {
+      var object = { number: 1, string: 'The quick brown fox jumped over the lazy dog!', boolean: true };
+      keyManager.encrypt(object)
+        .then(function(encrypted) {
+          expect(encrypted.key).to.be.a('string');
 
+          var data = encrypted.data;
+          expect(data).to.be.instanceof(Buffer);
+          expect(data[0]).to.equal(0x03); // v3, object
+
+          return keyManager.decrypt(encrypted.key, data);
+        })
+        .then(function(decrypted) {
+          expect(decrypted).to.eql(object);
+          done();
+        })
+        .catch(done);
+    });
+  });
 });

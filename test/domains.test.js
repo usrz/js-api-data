@@ -5,7 +5,7 @@ const Domains = require('../src/domains');
 const uuid = require('../src/uuid');
 const pg = require('pg');
 
-describe.only('Domains', function() {
+describe.skip('Domains', function() {
 
   var file = require('path').resolve(__dirname, '../ddl.sql');
   var ddl = require('fs').readFileSync(file).toString('utf8');
@@ -27,7 +27,7 @@ describe.only('Domains', function() {
       .catch(done);
   })
 
-  it('should return null fetching an unknown domain', function(done) {
+  xit('should return null fetching an unknown domain', function(done) {
     domains.select(uuid.v4())
       .then(function(domain) {
         console.log('domain', domain);
@@ -36,7 +36,7 @@ describe.only('Domains', function() {
       .catch(done);
   })
 
-  it('should save a new domain', function(done) {
+  xit('should save a new domain', function(done) {
     domains.insert({hello: "world"})
       .then(function(domain) {
         console.log('domain', domain);

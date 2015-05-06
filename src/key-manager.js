@@ -210,7 +210,7 @@ function KeyManager(key, roUri, rwUri) {
     // This runs in a transaction
     return rwClient.transaction(function(query) {
       // Check if we haven't deleted before
-      return query(SELECT_SQL + ' AND deleted_at IS NULL', uuid)
+      return query(SELECT_SQL + ' AND deleted_at IS NULL FOR UPDATE', uuid)
         .then(function(result) {
           // No valid result? Skip the rests
           if ((! result) || (! result.rows) || (! result.rows[0])) return null;

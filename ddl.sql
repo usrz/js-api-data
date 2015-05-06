@@ -67,9 +67,7 @@ CREATE RULE "encryption_keys_delete" AS ON DELETE TO "encryption_keys" DO INSTEA
 CREATE TABLE "domains" (
   "uuid"           UUID                     NOT NULL DEFAULT uuid_generate_v4(),
   "encryption_key" UUID                     NOT NULL,
-  "init_vector"    BYTEA                    NOT NULL,
   "encrypted_data" BYTEA                    NOT NULL,
-  "auth_tag"       BYTEA                    NOT NULL,
   "created_at"     TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   "updated_at"     TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   "deleted_at"     TIMESTAMP WITH TIME ZONE          DEFAULT NULL
@@ -119,7 +117,7 @@ CREATE RULE "domains_delete" AS ON DELETE TO "domains" DO INSTEAD
 -- uuid           -> primary key
 -- domain         -> fk to domains table
 -- encryption_key -> fk to encryption_keys table
--- init_vector / encrypted_data / auth_tag -> encrypted json
+-- encrypted_data -> encrypted json
 -- created_at     -> when the row was created
 -- updated_at     -> the last time the row was saved
 -- deleted_at     -> soft deletion marker
@@ -154,9 +152,7 @@ CREATE TABLE "users" (
   "uuid"           UUID                     NOT NULL DEFAULT uuid_generate_v4(),
   "domain"         UUID                     NOT NULL,
   "encryption_key" UUID                     NOT NULL,
-  "init_vector"    BYTEA                    NOT NULL,
   "encrypted_data" BYTEA                    NOT NULL,
-  "auth_tag"       BYTEA                    NOT NULL,
   "created_at"     TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   "updated_at"     TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   "deleted_at"     TIMESTAMP WITH TIME ZONE          DEFAULT NULL

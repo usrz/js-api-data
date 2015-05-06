@@ -34,7 +34,7 @@ var TestDB = exports = module.exports = function TestDB(ddl, host) {
               if (err) return done(err);
               client.query(ddl, function(err) {
                 if (err) return done(err);
-                client.query(`GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO "${rw_user}"`, function(err) {
+                client.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO "${rw_user}"`, function(err) {
                   if (err) return done(err);
                   client.query(`GRANT SELECT ON ALL TABLES IN SCHEMA public TO "${ro_user}"`, function(err) {
                     if (err) return done(err);

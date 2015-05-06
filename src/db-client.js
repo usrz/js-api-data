@@ -107,7 +107,7 @@ function DbClient(uri) {
 
         // Callback must return a promise
         var promise = callback(query);
-        if (typeof(promise.then) !== 'function') {
+        if ((! promise) || (typeof(promise.then) !== 'function')) {
           promise = Promise.reject(new Error('Callback did not return a Promise'));
         }
 
@@ -142,7 +142,7 @@ function DbClient(uri) {
 
           // Callback must return a promise
           var promise = callback(query);
-          if (typeof(promise.then) !== 'function') {
+          if ((! promise) || (typeof(promise.then) !== 'function')) {
             promise = Promise.reject(new Error('Callback did not return a promise'));
           }
 

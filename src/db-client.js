@@ -66,7 +66,7 @@ function DbClient(uri) {
     try {
       emitter.apply(null, arguments);
     } catch (error) {
-      console.warn("Error notifying listener", error);
+      console.warn("Error notifying listener", error.stack);
     }
   }
   this.emit = null;
@@ -91,7 +91,10 @@ function DbClient(uri) {
               if (err) {
                 emit('error', err);
                 var message = 'Error executing query "' + statement + '"';
-                if (parameters.length > 0) message += " " + parameters;
+                message += " with " + parameters.length + " parameters"
+                for (var i = 0; i < parameters.length; i ++) {
+                  message += "\n  - $" + i + " := " + util.inspect(parameters[i]);
+                }
                 return rejectQuery(new DbError(message, err));
               }
 
@@ -102,7 +105,14 @@ function DbClient(uri) {
           });
         };
 
-        Promise.resolve(callback(query))
+        // Callback must return a promise
+        var promise = callback(query);
+        if (typeof(promise.then) !== 'function') {
+          promise = Promise.reject(new Error('Callback did not return a Promise'));
+        }
+
+        // Release connections when callback is done
+        return promise
           .then(function(result) {
             done();
             emit('released');
@@ -113,7 +123,6 @@ function DbClient(uri) {
             emit('released');
             reject(error);
           });
-
       });
     });
   };
@@ -128,19 +137,29 @@ function DbClient(uri) {
 
   this.transaction = function transaction(callback) {
     return this.connect(function(query) {
-      query('BEGIN');
-      return Promise.resolve(callback(query))
-        .then(function(result) {
-          return query('COMMIT')
-            .then(function() {
-              return result;
+      return query('BEGIN')
+        .then(function() {
+
+          // Callback must return a promise
+          var promise = callback(query);
+          if (typeof(promise.then) !== 'function') {
+            promise = Promise.reject(new Error('Callback did not return a promise'));
+          }
+
+          // Commit/rollback transaction when callback is done
+          return promise
+            .then(function(result) {
+              return query('COMMIT')
+                .then(function() {
+                  return result;
+                });
+            }, function(error) {
+              return query('ROLLBACK')
+                .then(function() {
+                  throw error
+                });
             });
-        }, function(error) {
-          return query('ROLLBACK')
-            .then(function() {
-              throw error
-            });
-        })
+        });
     });
   };
 }

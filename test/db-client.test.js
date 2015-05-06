@@ -110,7 +110,7 @@ describe('Database Client', function() {
 
       .catch(function(error) {
         expect(error.name).to.equal('DbError');
-        expect(error.message).to.equal('Error executing query "XELECT 4 AS num"');
+        expect(error.message).to.equal('Error executing query "XELECT 4 AS num" with 0 parameters');
         expect(error.cause).to.be.instanceof(Error);
         expect(error.cause.message).to.match(/XELECT 4 AS num/);
 
@@ -296,7 +296,7 @@ describe('Database Client', function() {
 
       .catch(function(error) {
         expect(error.name).to.equal('DbError');
-        expect(error.message).to.equal('Error executing query "XELECT 4 AS num"');
+        expect(error.message).to.equal('Error executing query "XELECT 4 AS num" with 0 parameters');
         expect(error.cause).to.be.instanceof(Error);
         expect(error.cause.message).to.match(/XELECT 4 AS num/);
 

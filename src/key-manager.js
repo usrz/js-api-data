@@ -104,7 +104,7 @@ function Key(uuid, key, created_at, deleted_at) {
  * OUR KEY MANAGER CLASS                                                      *
  * ========================================================================== */
 
-function EncryptionKeys(key, roUri, rwUri) {
+function KeyManager(key, roUri, rwUri) {
   // Wrap the global encryption key
   key = new Key(UUID.NULL, key);
 
@@ -251,5 +251,5 @@ function EncryptionKeys(key, roUri, rwUri) {
   Object.freeze(this);
 }
 
-exports = module.exports = EncryptionKeys;
+exports = module.exports = KeyManager;
 

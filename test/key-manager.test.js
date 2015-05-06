@@ -1,28 +1,28 @@
 'use strict';
 
 const expect = require('chai').expect;
-const EncryptionKeys = require('../src/encryption-keys');
+const KeyManager = require('../src/key-manager');
 const pg = require('pg');
 
-describe('Encryption Keys', function() {
+describe('Encryption Key Manager', function() {
 
   var file = require('path').resolve(__dirname, '../ddl.sql');
   var ddl = require('fs').readFileSync(file).toString('utf8');
   var testdb = require('./testdb')(ddl);
-  var encryptionKeys = null;
+  var keyManager = null;
   var keys = null;
 
   before(testdb.before);
   before(function() {
     var masterKey = new Buffer(32).fill(0);
-    encryptionKeys = new EncryptionKeys(masterKey, testdb.ro_uri, testdb.rw_uri);
+    keyManager = new KeyManager(masterKey, testdb.ro_uri, testdb.rw_uri);
   })
   after(testdb.after);
 
   it('should generate a few keys', function(done) {
     var promises = [];
     for (var i = 0; i < 10; i ++) {
-      promises.push(encryptionKeys.generate());
+      promises.push(keyManager.generate());
     }
     Promise.all(promises).then(function(generated) {
       expect(generated.length).to.equal(10);
@@ -50,7 +50,7 @@ describe('Encryption Keys', function() {
   });
 
   it('should return a valid random key', function(done) {
-    encryptionKeys.get().then(function(key) {
+    keyManager.get().then(function(key) {
       for (var i = 0; i < keys.length; i++) {
         if (keys[i].uuid == key.uuid) return done();
       }
@@ -62,7 +62,7 @@ describe('Encryption Keys', function() {
   it('should return a valid random key across many', function(done) {
     var promises = [];
     for (var i = 0; i < 1000; i ++) {
-      promises.push(encryptionKeys.get());
+      promises.push(keyManager.get());
     }
     Promise.all(promises).then(function(gotten) {
       expect(gotten.length).to.equal(promises.length);
@@ -85,7 +85,7 @@ describe('Encryption Keys', function() {
   it('should load the generated keys', function(done) {
     var promises = [];
     for (var i = 0; i < keys.length; i ++) {
-      promises.push(encryptionKeys.load(keys[i].uuid));
+      promises.push(keyManager.load(keys[i].uuid));
     }
 
     Promise.all(promises).then(function(loaded) {
@@ -107,7 +107,7 @@ describe('Encryption Keys', function() {
   });
 
   it('should load the generated keys in one go', function(done) {
-    encryptionKeys.loadAll().then(function(loaded) {
+    keyManager.loadAll().then(function(loaded) {
       expect(loaded).to.be.an('object');
       for (var i = 0; i < keys.length; i++) {
         expect(loaded[keys[i].uuid]).to.exist;
@@ -121,7 +121,7 @@ describe('Encryption Keys', function() {
   it('should delete half of the keys', function(done) {
     var promises = [];
     for (var i = 0; i < keys.length; i += 2) {
-      promises.push(encryptionKeys.delete(keys[i].uuid));
+      promises.push(keyManager.delete(keys[i].uuid));
     }
 
     Promise.all(promises).then(function(deleted) {
@@ -143,7 +143,7 @@ describe('Encryption Keys', function() {
   it('should never return a deleted key when randomly getting it', function(done) {
     var promises = [];
     for (var i = 0; i < 1000; i ++) {
-      promises.push(encryptionKeys.get());
+      promises.push(keyManager.get());
     }
     Promise.all(promises).then(function(gotten) {
       expect(gotten.length).to.equal(promises.length);
@@ -166,7 +166,7 @@ describe('Encryption Keys', function() {
   it('should always return a deleted key when directly getting it', function(done) {
     var promises = [];
     for (var i = 0; i < keys.length; i ++) {
-      promises.push(encryptionKeys.get(keys[i].uuid));
+      promises.push(keyManager.get(keys[i].uuid));
     }
 
     Promise.all(promises).then(function(gotten) {
@@ -184,13 +184,13 @@ describe('Encryption Keys', function() {
   it('should create a new key when all available ones are deleted', function(done) {
     var promises = [];
     for (var i = 0; i < keys.length; i ++) {
-      promises.push(encryptionKeys.delete(keys[i].uuid));
+      promises.push(keyManager.delete(keys[i].uuid));
     }
 
     var all_deleted_keys = null;
     Promise.all(promises).then(function(deleted) {
       expect(deleted.length).to.equal(keys.length);
-      return encryptionKeys.loadAll(); // reload all
+      return keyManager.loadAll(); // reload all
     })
     .then(function(loaded) {
       expect(Object.keys(loaded).length).to.equal(keys.length);
@@ -198,7 +198,7 @@ describe('Encryption Keys', function() {
         expect(loaded[i].deleted_at).to.be.instanceof(Date);
       }
       all_deleted_keys = loaded;
-      return encryptionKeys.get();
+      return keyManager.get();
     })
     .then(function(generated) {
       expect(all_deleted_keys[generated.uuid]).to.not.exist;

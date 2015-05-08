@@ -226,8 +226,8 @@ class DbStore {
             .then(function(result) {
               if ((! result) || (! result.rows) || (! result.rows[0])) return [];
               var results = [];
-              for (var i in result.rows) results.push(decrypt(result.rows[i]));
-              return Promise.all(results);
+              for (var i in result.rows) results.push(result.rows[i].uuid);
+              return results;
             });
         })
     }

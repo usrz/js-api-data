@@ -137,17 +137,23 @@ function Key(uuid, key, created_at, deleted_at) {
  * OUR KEY MANAGER CLASS                                                      *
  * ========================================================================== */
 
-function KeyManager(key, roUri, rwUri) {
+function KeyManager(key, roClient, rwClient) {
   if (!(this instanceof KeyManager)) return new KeyManager(key, roUri, rwUri);
 
   // Wrap the global encryption key
   key = new Key(UUID.NULL, key);
 
   // Access to our database (RO/RW)
-  if (! roUri) throw new Error('At least one URI must be specified');
-  if (! rwUri) rwUri = roUri;
-  var roClient = new DbClient(roUri);
-  var rwClient = new DbClient(rwUri);
+  if (!(roClient instanceof DbClient)) {
+    throw new Error('Read-Only database client not specified or invalid');
+  }
+
+  // Read-write client, default to RO-client if unspecified
+  if (!rwClient) {
+    rwClient = roClient; // RO/RW is the same if unspecified
+  } else if (!(rwClient instanceof DbClient)) {
+    throw new Error('Read-Write database client is invalid');
+  }
 
   // Our caches
   var valid_keys = {};

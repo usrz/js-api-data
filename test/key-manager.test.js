@@ -15,7 +15,7 @@ describe('Encryption Key Manager', function() {
   before(testdb.before);
   before(function() {
     var masterKey = new Buffer(32).fill(0);
-    keyManager = new KeyManager(masterKey, testdb.ro_uri, testdb.rw_uri);
+    keyManager = new KeyManager(masterKey, testdb.ro_client, testdb.rw_client);
   })
   after(testdb.after);
 

@@ -42,7 +42,6 @@ function merge(one, two) {
 class DbObject {
   constructor (row, attributes) {
     this.uuid = row.uuid;
-    this.domain = row.domain;
     this.created_at = row.created_at || null;
     this.updated_at = row.updated_at || null;
     this.deleted_at = row.deleted_at || null;
@@ -69,8 +68,7 @@ class DbStore {
 
     // Our SQL statements
     const SELECT_SQL = `SELECT * FROM "${tableName}" WHERE "uuid" = $1::uuid`;
-    const DOMAIN_SQL = `SELECT * FROM "${tableName}" WHERE "domain" = $1::uuid`;
-    const INSERT_SQL = `INSERT INTO "${tableName}" ("domain", "encryption_key", "encrypted_data") VALUES ($1::uuid, $2::uuid, $3::bytea) RETURNING *`;
+    const INSERT_SQL = `INSERT INTO "${tableName}" ("encryption_key", "encrypted_data") VALUES ($1::uuid, $2::bytea) RETURNING *`;
     const UPDATE_SQL = `UPDATE "${tableName}" SET "encryption_key" = $2::uuid, "encrypted_data" = $3::bytea WHERE "uuid" = $1::uuid RETURNING *`;
     const DELETE_SQL = `UPDATE "${tableName}" SET "deleted_at" = NOW() WHERE "uuid" = $1::uuid RETURNING *`;
 
@@ -132,7 +130,7 @@ class DbStore {
         .then(function(uuid) {
           if (! uuid) return false;
 
-          var sql = DOMAIN_SQL;
+          var sql = SELECT_SQL;
           if (! include_deleted) sql += ' AND deleted_at IS NULL';
 
           return query(sql, uuid)
@@ -162,7 +160,7 @@ class DbStore {
         .then(function(uuid) {
           if (! uuid) return null;
 
-          var sql = DOMAIN_SQL;
+          var sql = SELECT_SQL;
           if (! include_deleted) sql += ' AND deleted_at IS NULL';
 
           return query(sql, uuid)
@@ -174,66 +172,17 @@ class DbStore {
     }
 
     /* ---------------------------------------------------------------------- *
-     * Select all rows associated with a domain                               *
-     * ---------------------------------------------------------------------- */
-
-    this.domain = function domain(uuid, include_deleted, limit, query) {
-
-      // Check for optional parameters
-      if (typeof(include_deleted) === 'number') {
-        query = limit;
-        limit = include_deleted;
-        include_deleted = false;
-      } else if (typeof(include_deleted) === 'function') {
-        query = include_deleted;
-        include_deleted = false;
-        limit = -1;
-      }
-
-      if (typeof(limit) === 'function') {
-        query = limit;
-        limit = -1;
-      }
-
-      // Normalize missing values
-      include_deleted = include_deleted || false;
-      limit = parseInt(limit) || -1;
-
-      // If still no query, re-run with a default one!
-      if (! query) return client.connect(false, function(query) {
-        return self.domain(uuid, include_deleted, limit, query);
-      });
-
-      return validate(uuid)
-        .then(function(uuid) {
-          if (! uuid) return [];
-
-          var sql = DOMAIN_SQL;
-          if (! include_deleted) sql += ' AND deleted_at IS NULL';
-          if (limit > 1) sql += ' LIMIT ' + parseInt(limit);
-
-          return query(sql, uuid)
-            .then(function(result) {
-              if ((! result) || (! result.rows) || (! result.rows[0])) return [];
-              var results = [];
-              for (var i in result.rows) results.push(result.rows[i].uuid);
-              return results;
-            });
-        })
-    }
-
-    /* ---------------------------------------------------------------------- *
      * Insert a new record in the DB                                          *
      * ---------------------------------------------------------------------- */
 
-    this.insert = function insert(domain, attributes, query) {
+    this.insert = function insert(attributes, query) {
       if (! query) return client.connect(true, function(query) {
-        return self.insert(domain, attributes, query);
+        return self.insert(attributes, query);
       });
 
       return encrypt(attributes)
         .then(function(encrypted) {
-          return query(INSERT_SQL, domain, encrypted.key, encrypted.data)
+          return query(INSERT_SQL, encrypted.key, encrypted.data)
             .then(function(result) {
               if ((! result) || (! result.rows) || (! result.rows[0])) return null;
               return decrypt(result.rows[0]); // triple-check decryption

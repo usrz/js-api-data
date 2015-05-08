@@ -49,7 +49,6 @@ describe('Domains', function() {
       .then(function(created) {
         expect(created).to.exist;
         expect(created.uuid).to.be.a('string');
-        expect(created.domain).to.be.a('string');
         expect(created.uuid).to.equal(created.uuid);
         expect(created.created_at).to.be.instanceof(Date);
         expect(created.updated_at).to.be.instanceof(Date);

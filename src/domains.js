@@ -1,16 +1,12 @@
 'use strict';
 
 const DbStore = require('./db-store');
-const UUID = require('./uuid');
 
-const domain_placeholder = UUID.NULL.toString();
 const domains = new WeakMap();
-const users = new WeakMap();
 
 class Domains {
   constructor(keyManager, client) {
     domains.set(this, new DbStore("domains", keyManager, client));
-    users.set(this, new DbStore("users", keyManager, client));
   }
 
   find(uuid, include_deleted) {
@@ -18,7 +14,7 @@ class Domains {
   }
 
   create(attributes) {
-    return domains.get(this).insert(domain_placeholder, attributes);
+    return domains.get(this).insert(attributes);
   }
 
   modify(uuid, attributes) {
@@ -27,10 +23,6 @@ class Domains {
 
   delete(uuid) {
     return domains.get(this).delete(uuid);
-  }
-
-  users(uuid) {
-    return users.get(this).domain(uuid);
   }
 }
 

@@ -58,34 +58,42 @@ DbError.prototype.name = 'DbError';
  * ========================================================================== */
 
 class DbClient extends EventEmitter {
-  constructor(uri) {
+  constructor(ro_uri, rw_uri) {
     super();
 
-    if (! uri) throw new DbError("DbClient connection URI not specified");
-    this.uri = uri;
+    if (! ro_uri) throw new DbError("DbClient connection URI not specified");
+    if (! rw_uri) rw_uri = ro_uri;
+    this.ro_uri = ro_uri;
+    this.rw_uri = rw_uri;
   }
 
   /* ------------------------------------------------------------------------ *
    * Connect to the database, invoke callback with query fn, return Promise   *
    * ------------------------------------------------------------------------ */
-  connect(callback) {
+  connect(updates, callback) {
+    if (typeof(updates) === 'function') {
+      callback = updates;
+      updates = false;
+    }
+
     var self = this;
+    var uri = updates ? this.rw_uri : this.ro_uri;
 
     return new Promise(function(resolve, reject) {
-      pg.connect(self.uri, function(err, client, done) {
+      pg.connect(uri, function(err, client, done) {
         if (err) {
           self.emit('exception', err);
-          return reject(new DbError('Error connecting to ' + self.uri, err));
+          return reject(new DbError('Error connecting to ' + uri, err));
         }
 
         // Emit our "connected"
-        self.emit('acquired');
+        self.emit('acquired', uri);
 
         // Our query function
         var query = function query(statement) {
           var parameters = Array.prototype.slice.call(arguments, 1);
           return new Promise(function(resolveQuery, rejectQuery) {
-            client.query(statement, parameters, function(err, result) {
+            client.query(statement.toString(), parameters, function(err, result) {
               if (err) {
                 self.emit('exception', err);
                 var message = 'Error executing query "' + statement + '"';
@@ -93,6 +101,7 @@ class DbClient extends EventEmitter {
                 for (var i = 0; i < parameters.length; i ++) {
                   message += "\n  - $" + i + " := " + util.inspect(parameters[i]);
                 }
+                message += "\n  - DB := " + uri;
                 return rejectQuery(new DbError(message, err));
               }
 
@@ -113,12 +122,12 @@ class DbClient extends EventEmitter {
         return promise
           .then(function(result) {
             done();
-            self.emit('released');
+            self.emit('released', uri);
             resolve(result);
 
           }, function(error) {
             done();
-            self.emit('released');
+            self.emit('released', uri);
             reject(error);
           });
       });
@@ -126,21 +135,10 @@ class DbClient extends EventEmitter {
   };
 
   /* ------------------------------------------------------------------------ *
-   * One-shot connect, single query, return Promise                           *
-   * ------------------------------------------------------------------------ */
-  query(statement) {
-    var self = this;
-    var args = arguments;
-    return this.connect(function(query) {
-      return query.apply(self, args);
-    });
-  }
-
-  /* ------------------------------------------------------------------------ *
    * Wrap "connect" with "BEGIN" -> "COMMIT"/"ROLLBACK"                       *
    * ------------------------------------------------------------------------ */
   transaction(callback) {
-    return this.connect(function(query) {
+    return this.connect(true, function(query) {
       return query('BEGIN')
         .then(function() {
 
@@ -166,6 +164,23 @@ class DbClient extends EventEmitter {
         });
     });
   };
+
+  /* ------------------------------------------------------------------------ *
+   * One-shot connect, single query, return Promise                           *
+   * ------------------------------------------------------------------------ */
+  query(updates, statement) {
+    var self = this;
+    var args = Array.prototype.slice.call(arguments, 0);
+    if (typeof(updates) === 'boolean') {
+      statement = args.splice(0, 1)[0];
+    } else {
+      updates = false;
+    }
+    return this.connect(updates, function(query) {
+      return query.apply(self, args);
+    });
+  }
+
 }
 
 /* ========================================================================== *

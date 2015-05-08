@@ -57,12 +57,42 @@ CREATE RULE "encryption_keys_delete" AS ON DELETE TO "encryption_keys" DO INSTEA
    WHERE uuid=OLD.uuid
      AND deleted_at IS NULL;
 
+-- * ========================================================================= *
+-- | * ===================================================================== * |
+-- | | DATA TABLES                                                           | |
+-- | * ===================================================================== * |
+-- * ========================================================================= *
+
+-- Every data table has the same structure:
+--
+-- uuid           -> primary key
+-- encryption_key -> fk to encryption_keys table
+-- encrypted_data -> encrypted json
+-- created_at     -> when the row was created
+-- updated_at     -> the last time the row was saved
+-- deleted_at     -> soft deletion marker
+--
+-- We want to protect against updates to "uuid" and "created_at" in order to
+-- protect data consistency, then "updated_at" gets updated to "NOW()"
+
+CREATE FUNCTION "fn_update_trigger" () RETURNS TRIGGER AS $$
+BEGIN
+  -- Raise exception if attempting to update anything
+  IF (OLD.uuid           != NEW.uuid)           OR
+     (OLD.created_at     != NEW.created_at)
+  THEN
+    RAISE EXCEPTION 'Attempting to update "%" values for key "%"', TG_TABLE_NAME, OLD.uuid;
+  END IF;
+
+  -- Enforce "updated_at" to be now()
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE 'plpgsql';
 
 -- * ========================================================================= *
 -- * DOMAINS                                                                   *
 -- * ========================================================================= *
-
--- Domains are the root of all evils, everything points here
 
 CREATE TABLE "domains" (
   "uuid"           UUID                     NOT NULL DEFAULT uuid_generate_v4(),
@@ -79,27 +109,11 @@ ALTER TABLE "domains"
   ADD CONSTRAINT "domains_encryption_keys_uuid_fkey"
       FOREIGN KEY ("encryption_key") REFERENCES "encryption_keys" ("uuid");
 
--- Create a functions+trigger that will protect us from updates: this is
--- the same function as "fn_update_trigger" below minus the "domain" check.
-CREATE FUNCTION "fn_domains_update_trigger" () RETURNS TRIGGER AS $$
-BEGIN
-  -- Raise exception if attempting to update anything
-  IF (OLD.uuid           != NEW.uuid)           OR
-     (OLD.created_at     != NEW.created_at)
-  THEN
-    RAISE EXCEPTION 'Attempting to update domain values';
-  END IF;
-
-  -- Enforce "updated_at" to be now()
-  NEW.updated_at = now();
-  RETURN NEW;
-END;
-$$ LANGUAGE 'plpgsql';
-
+-- Protect against updates
 CREATE TRIGGER "domains_update" BEFORE UPDATE ON "domains"
-  FOR EACH ROW EXECUTE PROCEDURE "fn_domains_update_trigger" ();
+  FOR EACH ROW EXECUTE PROCEDURE "fn_update_trigger" ();
 
--- Use a rule to turn DELETE into UPDATE (deleted_at)
+-- Turn DELETE into UPDATE (deleted_at)
 CREATE RULE "domains_delete" AS ON DELETE TO "domains" DO INSTEAD
   UPDATE "domains"
      SET deleted_at=NOW()
@@ -107,50 +121,11 @@ CREATE RULE "domains_delete" AS ON DELETE TO "domains" DO INSTEAD
      AND deleted_at IS NULL;
 
 -- * ========================================================================= *
--- | * ===================================================================== * |
--- | | ORDINARY DATA TABLES                                                  | |
--- | * ===================================================================== * |
--- * ========================================================================= *
-
--- Every data table has the same structure:
---
--- uuid           -> primary key
--- domain         -> fk to domains table
--- encryption_key -> fk to encryption_keys table
--- encrypted_data -> encrypted json
--- created_at     -> when the row was created
--- updated_at     -> the last time the row was saved
--- deleted_at     -> soft deletion marker
---
--- We want to protect against updates to "uuid", "domain" and "created_at" in
--- order to protect consistency, then "updated_at" gets updated to "NOW()"
---
--- This is basically the same as "fn_domains_update_trigger" above with an
--- extra check for the "domain" column.
-
-CREATE FUNCTION "fn_update_trigger" () RETURNS TRIGGER AS $$
-BEGIN
-  -- Raise exception if attempting to update anything
-  IF (OLD.uuid           != NEW.uuid)           OR
-     (OLD.domain         != NEW.domain)         OR
-     (OLD.created_at     != NEW.created_at)
-  THEN
-    RAISE EXCEPTION 'Attempting to update "%" values for key "%"', TG_TABLE_NAME, OLD.uuid;
-  END IF;
-
-  -- Enforce "updated_at" to be now()
-  NEW.updated_at = now();
-  RETURN NEW;
-END;
-$$ LANGUAGE 'plpgsql';
-
--- * ========================================================================= *
 -- * USERS                                                                     *
 -- * ========================================================================= *
 
 CREATE TABLE "users" (
   "uuid"           UUID                     NOT NULL DEFAULT uuid_generate_v4(),
-  "domain"         UUID                     NOT NULL,
   "encryption_key" UUID                     NOT NULL,
   "encrypted_data" BYTEA                    NOT NULL,
   "created_at"     TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
@@ -161,18 +136,17 @@ CREATE TABLE "users" (
 ALTER TABLE "users"
   ADD CONSTRAINT "users_pkey"
       PRIMARY KEY ("uuid"),
-  ADD CONSTRAINT "users_domain_uuid_fkey"
-      FOREIGN KEY ("domain") REFERENCES "domains" ("uuid"),
   ADD CONSTRAINT "domains_encryption_keys_uuid_fkey"
       FOREIGN KEY ("encryption_key") REFERENCES "encryption_keys" ("uuid");
 
--- Our trigger to protect updates
+-- Protect against updates
 CREATE TRIGGER "users_update" BEFORE UPDATE ON "users"
   FOR EACH ROW EXECUTE PROCEDURE "fn_update_trigger" ();
 
--- Our rule to turn DELETE into UPDATE (deleted_at)
+-- Turn DELETE into UPDATE (deleted_at)
 CREATE RULE "users_delete" AS ON DELETE TO "users" DO INSTEAD
   UPDATE "users"
      SET deleted_at=NOW()
    WHERE uuid=OLD.uuid
      AND deleted_at IS NULL;
+

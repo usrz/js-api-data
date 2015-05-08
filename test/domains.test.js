@@ -27,7 +27,7 @@ describe('Domains', function() {
   after(testdb.after);
 
   it('should return null fetching an invalid uuid', function(done) {
-    domains.find("mario")
+    domains.get("mario")
       .then(function(domain) {
         expect(domain).to.be.null;
         done();
@@ -36,7 +36,7 @@ describe('Domains', function() {
   })
 
   it('should return null fetching an unknown domain', function(done) {
-    domains.find(uuid.v4())
+    domains.get(uuid.v4())
       .then(function(domain) {
         expect(domain).to.be.null;
         done();
@@ -63,7 +63,7 @@ describe('Domains', function() {
 
   it('should find our saved domain', function(done) {
     if (! domain) return this.skip();
-    domains.find(domain.uuid)
+    domains.get(domain.uuid)
       .then(function(found) {
         expect(found).to.eql(domain);
         done();
@@ -106,7 +106,7 @@ describe('Domains', function() {
 
   it('should not return our deleted domain by default', function(done) {
     if (! domain) return this.skip();
-    domains.find(domain.uuid)
+    domains.get(domain.uuid)
       .then(function(found) {
         expect(found).to.be.null;
         done();
@@ -116,7 +116,7 @@ describe('Domains', function() {
 
   it('should not return our domain when not including deleted', function(done) {
     if (! domain) return this.skip();
-    domains.find(domain.uuid, false)
+    domains.get(domain.uuid, false)
       .then(function(found) {
         expect(found).to.be.null;
         done();
@@ -127,7 +127,7 @@ describe('Domains', function() {
 
   it('should return our domain when including deleted', function(done) {
     if (! domain) return this.skip();
-    domains.find(domain.uuid, true)
+    domains.get(domain.uuid, true)
       .then(function(found) {
         expect(found).to.eql(domain);
         done();

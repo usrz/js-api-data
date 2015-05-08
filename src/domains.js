@@ -9,7 +9,7 @@ class Domains {
     domains.set(this, new DbStore("domains", keyManager, client));
   }
 
-  find(uuid, include_deleted) {
+  get(uuid, include_deleted) {
     return domains.get(this).select(uuid, include_deleted);
   }
 

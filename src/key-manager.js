@@ -339,7 +339,12 @@ class KeyManager {
 
     // Freeze ourselves
     Object.freeze(this);
-}}
+  }
+}
 
+/* ========================================================================== *
+ * EXPORTS                                                                    *
+ * ========================================================================== */
+
+KeyManager.Key = Key;
 exports = module.exports = KeyManager;
-

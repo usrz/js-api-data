@@ -36,20 +36,20 @@ function mergeStack(error, cause) {
  * DB ERROR, WRAPS ANOTHER ERROR NICELY                                       *
  * ========================================================================== */
 
-function DbError(message, cause, stack) {
+class DbError extends Error {
+  constructor(message, cause, stack) {
+    super(message);
 
-  /* Build up our properties */
-  Error.call(this, message);
-  Error.captureStackTrace(this, DbError);
+    /* Our properties */
+    if (message) this.message = message;
+    if (cause) this.cause = cause;
 
-  /* Instrument the caller's stack */
-  if (message) this.message = message;
-  if (cause) this.cause = cause;
-  mergeStack(this, cause);
+    /* Capture our stack trace and marge */
+    Error.captureStackTrace(this, DbError);
+    if (cause) mergeStack(this, cause);
+  };
 };
 
-DbError.prototype = Object.create(Error.prototype);
-DbError.prototype.constructor = DbError;
 DbError.prototype.message = 'Database Error';
 DbError.prototype.name = 'DbError';
 
@@ -57,31 +57,29 @@ DbError.prototype.name = 'DbError';
  * DB CLIENT, POWER TO PROMISES                                               *
  * ========================================================================== */
 
-function DbClient(uri) {
-  if (!(this instanceof DbClient)) return new DbClient(uri);
-  if (! uri) throw new DbError("DbClient connection URI not specified");
+class DbClient extends EventEmitter {
+  constructor(uri) {
+    super();
 
-  var emitter = this.emit.bind(this);
-  var emit = function emit() {
-    try {
-      emitter.apply(null, arguments);
-    } catch (error) {
-      console.warn("Error notifying listener", error.stack);
-    }
+    if (! uri) throw new DbError("DbClient connection URI not specified");
+    this.uri = uri;
   }
-  this.emit = null;
 
-  this.connect = function connect(callback) {
+  /* ------------------------------------------------------------------------ *
+   * Connect to the database, invoke callback with query fn, return Promise   *
+   * ------------------------------------------------------------------------ */
+  connect(callback) {
+    var self = this;
 
     return new Promise(function(resolve, reject) {
-      pg.connect(uri, function(err, client, done) {
+      pg.connect(self.uri, function(err, client, done) {
         if (err) {
-          emit('error', err);
-          return reject(new DbError('Error connecting to ' + uri, err));
+          self.emit('exception', err);
+          return reject(new DbError('Error connecting to ' + self.uri, err));
         }
 
         // Emit our "connected"
-        emit('acquired');
+        self.emit('acquired');
 
         // Our query function
         var query = function query(statement) {
@@ -89,7 +87,7 @@ function DbClient(uri) {
           return new Promise(function(resolveQuery, rejectQuery) {
             client.query(statement, parameters, function(err, result) {
               if (err) {
-                emit('error', err);
+                self.emit('exception', err);
                 var message = 'Error executing query "' + statement + '"';
                 message += " with " + parameters.length + " parameters"
                 for (var i = 0; i < parameters.length; i ++) {
@@ -98,7 +96,7 @@ function DbClient(uri) {
                 return rejectQuery(new DbError(message, err));
               }
 
-              emit('query', statement, parameters);
+              self.emit('query', statement, parameters);
               resolveQuery(result);
 
             });
@@ -115,19 +113,22 @@ function DbClient(uri) {
         return promise
           .then(function(result) {
             done();
-            emit('released');
+            self.emit('released');
             resolve(result);
 
           }, function(error) {
             done();
-            emit('released');
+            self.emit('released');
             reject(error);
           });
       });
     });
   };
 
-  this.query = function query(statement) {
+  /* ------------------------------------------------------------------------ *
+   * One-shot connect, single query, return Promise                           *
+   * ------------------------------------------------------------------------ */
+  query(statement) {
     var self = this;
     var args = arguments;
     return this.connect(function(query) {
@@ -135,7 +136,10 @@ function DbClient(uri) {
     });
   }
 
-  this.transaction = function transaction(callback) {
+  /* ------------------------------------------------------------------------ *
+   * Wrap "connect" with "BEGIN" -> "COMMIT"/"ROLLBACK"                       *
+   * ------------------------------------------------------------------------ */
+  transaction(callback) {
     return this.connect(function(query) {
       return query('BEGIN')
         .then(function() {
@@ -164,12 +168,8 @@ function DbClient(uri) {
   };
 }
 
-// EventEmitter inheritance
-util.inherits(DbClient, EventEmitter);
-
 /* ========================================================================== *
  * EXPORTS                                                                    *
  * ========================================================================== */
 
 exports = module.exports = DbClient;
-

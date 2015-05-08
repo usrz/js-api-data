@@ -13,7 +13,7 @@ describe('Database Client', function() {
     client.on('acquired', queries.push.bind(queries, 'acquired'));
     client.on('released', queries.push.bind(queries, 'released'));
     client.on('query', queries.push.bind(queries, 'query'));
-    client.on('error', queries.push.bind(queries, 'error'));
+    client.on('exception', queries.push.bind(queries, 'exception'));
 
     client.query("SELECT 1 AS num")
       .then(function(one) {
@@ -38,7 +38,7 @@ describe('Database Client', function() {
     client.on('acquired', queries.push.bind(queries, 'acquired'));
     client.on('released', queries.push.bind(queries, 'released'));
     client.on('query', queries.push.bind(queries, 'query'));
-    client.on('error', queries.push.bind(queries, 'error'));
+    client.on('exception', queries.push.bind(queries, 'exception'));
 
     client.query("SELECT 1 AS num")
       .then(function(one) {
@@ -52,7 +52,7 @@ describe('Database Client', function() {
 
       expect(results).to.eql([]);
       expect(queries).to.eql([
-        'error', error.cause,
+        'exception', error.cause,
       ]);
 
       done();
@@ -75,7 +75,7 @@ describe('Database Client', function() {
       client.on('acquired', queries.push.bind(queries, 'acquired'));
       client.on('released', queries.push.bind(queries, 'released'));
       client.on('query', queries.push.bind(queries, 'query'));
-      client.on('error', queries.push.bind(queries, 'error'));
+      client.on('exception', queries.push.bind(queries, 'exception'));
 
       client.connect(function (query) {
         return query("SELECT 1 AS num")
@@ -120,7 +120,7 @@ describe('Database Client', function() {
           'query', 'SELECT 1 AS num', [],
           'query', 'SELECT 2 AS num', [],
           'query', 'SELECT 3 AS num', [],
-          'error', error.cause,
+          'exception', error.cause,
           'released'
         ]);
 
@@ -139,7 +139,7 @@ describe('Database Client', function() {
       client.on('acquired', queries.push.bind(queries, 'acquired'));
       client.on('released', queries.push.bind(queries, 'released'));
       client.on('query', queries.push.bind(queries, 'query'));
-      client.on('error', queries.push.bind(queries, 'error'));
+      client.on('exception', queries.push.bind(queries, 'exception'));
 
       client.connect(function (query) {
         return query("SELECT 1 AS num")
@@ -201,7 +201,7 @@ describe('Database Client', function() {
       client.on('acquired', queries.push.bind(queries, 'acquired'));
       client.on('released', queries.push.bind(queries, 'released'));
       client.on('query', queries.push.bind(queries, 'query'));
-      client.on('error', queries.push.bind(queries, 'error'));
+      client.on('exception', queries.push.bind(queries, 'exception'));
 
       client.connect(function (query) {
         return query("SELECT 1 AS num")
@@ -261,7 +261,7 @@ describe('Database Client', function() {
       client.on('acquired', queries.push.bind(queries, 'acquired'));
       client.on('released', queries.push.bind(queries, 'released'));
       client.on('query', queries.push.bind(queries, 'query'));
-      client.on('error', queries.push.bind(queries, 'error'));
+      client.on('exception', queries.push.bind(queries, 'exception'));
 
       client.transaction(function (query) {
         return query("SELECT 1 AS num")
@@ -307,7 +307,7 @@ describe('Database Client', function() {
           'query', 'SELECT 1 AS num', [],
           'query', 'SELECT 2 AS num', [],
           'query', 'SELECT 3 AS num', [],
-          'error', error.cause,
+          'exception', error.cause,
           'query', 'ROLLBACK',        [],
           'released'
         ]);
@@ -327,7 +327,7 @@ describe('Database Client', function() {
       client.on('acquired', queries.push.bind(queries, 'acquired'));
       client.on('released', queries.push.bind(queries, 'released'));
       client.on('query', queries.push.bind(queries, 'query'));
-      client.on('error', queries.push.bind(queries, 'error'));
+      client.on('exception', queries.push.bind(queries, 'exception'));
 
       client.transaction(function (query) {
         return query("SELECT 1 AS num")
@@ -391,7 +391,7 @@ describe('Database Client', function() {
       client.on('acquired', queries.push.bind(queries, 'acquired'));
       client.on('released', queries.push.bind(queries, 'released'));
       client.on('query', queries.push.bind(queries, 'query'));
-      client.on('error', queries.push.bind(queries, 'error'));
+      client.on('exception', queries.push.bind(queries, 'exception'));
 
       client.transaction(function (query) {
         return query("SELECT 1 AS num")

@@ -6,7 +6,7 @@ const KeyManager = require('../src/key-manager');
 const uuid = require('../src/uuid');
 const pg = require('pg');
 
-describe.skip('Domains', function() {
+describe('Domains', function() {
 
   var file = require('path').resolve(__dirname, '../ddl.sql');
   var ddl = require('fs').readFileSync(file).toString('utf8');
@@ -21,8 +21,8 @@ describe.skip('Domains', function() {
   before(testdb.before);
   before(function() {
     var masterKey = new Buffer(32).fill(0);
-    var keyManager = new KeyManager(masterKey, testdb.ro_client, testdb.rw_client);
-    domains = new Domains(keyManager, testdb.ro_client, testdb.rw_client);
+    var keyManager = new KeyManager(masterKey, testdb.client);
+    domains = new Domains(keyManager, testdb.client);
   })
   after(testdb.after);
 

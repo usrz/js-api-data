@@ -54,7 +54,7 @@ class DbObject {
  * DB STORE CLASS                                                             *
  * ========================================================================== */
 class DbStore {
-  constructor(tableName, keyManager, roClient, rwClient) {
+  constructor(tableName, keyManager, client) {
 
     // Validate table name and key manager
     if (!util.isString(tableName)) throw new Error('Table name must be a string');
@@ -62,20 +62,10 @@ class DbStore {
     if (!(keyManager instanceof KeyManager)) throw new Error('Invalid key manager');
 
     // Access to our database (RO/RW)
-    if (!(roClient instanceof DbClient)) {
-      throw new Error('Read-Only database client not specified or invalid');
-    }
-
-    // Read-write client, default to RO if unspecified
-    if (!rwClient) {
-      rwClient = roClient;
-    } else if (!(rwClient instanceof DbClient)) {
-      throw new Error('Read-Write database client is invalid');
-    }
+    if (!(client instanceof DbClient)) throw new Error('Database client not specified or invalid');
 
     // Expose clients to users
-    this.roClient = roClient;
-    this.rwClient = rwClient;
+    this.client;
 
     // Our SQL statements
     const SELECT_SQL = `SELECT * FROM "${tableName}" WHERE "uuid" = $1::uuid`;
@@ -134,7 +124,7 @@ class DbStore {
         include_deleted = false;
       }
 
-      if (! query) return roClient.connect(function(query) {
+      if (! query) return client.connect(false, function(query) {
         return self.exists(uuid, include_deleted, query);
       });
 
@@ -164,7 +154,7 @@ class DbStore {
         include_deleted = false;
       }
 
-      if (! query) return roClient.connect(function(query) {
+      if (! query) return client.connect(false, function(query) {
         return self.select(uuid, include_deleted, query);
       });
 
@@ -210,7 +200,7 @@ class DbStore {
       limit = parseInt(limit) || -1;
 
       // If still no query, re-run with a default one!
-      if (! query) return roClient.connect(function(query) {
+      if (! query) return client.connect(false, function(query) {
         return self.domain(uuid, include_deleted, limit, query);
       });
 
@@ -237,7 +227,7 @@ class DbStore {
      * ---------------------------------------------------------------------- */
 
     this.insert = function insert(domain, attributes, query) {
-      if (! query) return rwClient.connect(function(query) {
+      if (! query) return client.connect(true, function(query) {
         return self.insert(domain, attributes, query);
       });
 
@@ -256,7 +246,7 @@ class DbStore {
      * ---------------------------------------------------------------------- */
 
     this.update = function update(uuid, attributes, query) {
-      if (! query) return rwClient.connect(function(query) {
+      if (! query) return client.connect(true, function(query) {
         return self.update(uuid, attributes, query);
       });
 
@@ -285,7 +275,7 @@ class DbStore {
      * Soft delete from the DB and return old record                          *
      * ---------------------------------------------------------------------- */
     this.delete = function delete_(uuid, query) {
-      if (! query) return rwClient.connect(function(query) {
+      if (! query) return client.connect(true, function(query) {
         return self.delete(uuid, query);
       });
 

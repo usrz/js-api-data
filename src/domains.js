@@ -8,9 +8,9 @@ const domains = new WeakMap();
 const users = new WeakMap();
 
 class Domains {
-  constructor(keyManager, roClient, rwClient) {
-    domains.set(this, new DbStore("domains", keyManager, roClient, rwClient));
-    users.set(this, new DbStore("users", keyManager, roClient, rwClient));
+  constructor(keyManager, client) {
+    domains.set(this, new DbStore("domains", keyManager, client));
+    users.set(this, new DbStore("users", keyManager, client));
   }
 
   find(uuid, include_deleted) {

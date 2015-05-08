@@ -281,10 +281,10 @@ UUID.v3uuid = function v3uuid(namespace, name) {
   return new UUID(buffer);
 }
 
-UUID.v4uuid = function v4uuid(secure) {
+UUID.v4uuid = function v4uuid() {
 
   // Get randon data and generate UUID
-  var buffer = secure ? crypto.randomBytes(16) : crypto.pseudoRandomBytes(16);
+  var buffer = crypto.randomBytes(16);
   buffer[6] = (buffer[6] & 0x0F) | 0x40;
   buffer[8] = (buffer[8] & 0x3F) | 0x80;
   return new UUID(buffer);

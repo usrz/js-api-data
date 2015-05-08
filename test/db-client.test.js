@@ -48,7 +48,7 @@ describe('Database Client', function() {
       expect(error.name).to.equal('DbError');
       expect(error.message).to.equal('Error connecting to postgres://localhost:9999/foo');
       expect(error.cause).to.be.instanceof(Error);
-      expect(error.cause.message).to.match(/could not connect to server/);
+      expect(error.cause.message).to.match(/ECONNREFUSED/);
 
       expect(results).to.eql([]);
       expect(queries).to.eql([
@@ -112,7 +112,7 @@ describe('Database Client', function() {
         expect(error.name).to.equal('DbError');
         expect(error.message).to.equal('Error executing query "XELECT 4 AS num" with 0 parameters');
         expect(error.cause).to.be.instanceof(Error);
-        expect(error.cause.message).to.match(/XELECT 4 AS num/);
+        expect(error.cause.message).to.match(/XELECT/);
 
         expect(results).to.eql([1, 2, 3]);
         expect(queries).to.eql([
@@ -298,7 +298,7 @@ describe('Database Client', function() {
         expect(error.name).to.equal('DbError');
         expect(error.message).to.equal('Error executing query "XELECT 4 AS num" with 0 parameters');
         expect(error.cause).to.be.instanceof(Error);
-        expect(error.cause.message).to.match(/XELECT 4 AS num/);
+        expect(error.cause.message).to.match(/XELECT/);
 
         expect(results).to.eql([1, 2, 3]);
         expect(queries).to.eql([

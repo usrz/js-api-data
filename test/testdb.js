@@ -7,7 +7,6 @@ const pg = require('pg');
 var TestDB = exports = module.exports = function TestDB(ddl, host) {
   if (!(this instanceof TestDB)) return new TestDB(ddl, host);
 
-  if (! ddl) throw new Error("Missing DDL");
   if (! host) host = 'localhost';
 
   var database = uuid.v4();
@@ -16,8 +15,7 @@ var TestDB = exports = module.exports = function TestDB(ddl, host) {
 
   this.ro_uri = `postgres://${ro_user}:ro_password@${host}/${database}`;
   this.rw_uri = `postgres://${rw_user}:rw_password@${host}/${database}`;
-  this.ro_client = new DbClient(this.ro_uri);
-  this.rw_client = new DbClient(this.rw_uri);
+  this.client = new DbClient(this.ro_uri, this.rw_uri);
 
   this.before = function before(done) {
     var client = new pg.Client(`postgres://${host}/postgres`);
@@ -31,6 +29,11 @@ var TestDB = exports = module.exports = function TestDB(ddl, host) {
           client.query(`CREATE USER "${rw_user}" WITH PASSWORD 'rw_password'`, function(err) {
             if (err) return done(err);
             client.end();
+
+            if (! ddl) {
+              console.log('    \x1B[36m\u272d\x1B[0m database "' + database + '" created');
+              return done();
+            }
 
             client = new pg.Client(`postgres://${host}/${database}`);
             client.connect(function(err) {

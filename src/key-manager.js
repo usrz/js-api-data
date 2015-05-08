@@ -6,10 +6,10 @@ const util = require('util');
 const DbClient = require('./db-client');
 const UUID = require('./uuid');
 
-const INSERT_SQL = 'INSERT INTO "encryption_keys" ("encrypted_key") VALUES ($1::BYTEA) RETURNING *';
+const INSERT_SQL = 'INSERT INTO "encryption_keys" ("encrypted_key") VALUES ($1::bytea) RETURNING *';
 const SELECT_ALL_SQL = 'SELECT * FROM "encryption_keys"';
-const SELECT_SQL = SELECT_ALL_SQL + ' WHERE uuid=$1';
-const DELETE_SQL = 'DELETE FROM "encryption_keys" WHERE uuid=$1';
+const SELECT_SQL = SELECT_ALL_SQL + ' WHERE "uuid"=$1::uuid';
+const DELETE_SQL = 'DELETE FROM "encryption_keys" WHERE "uuid"=$1::uuid';
 
 // v1 (buffer) v2 (string) v3 (json) encryption:
 // - AES-256-GCM with AAD using Vx_TAG
@@ -148,9 +148,9 @@ function KeyManager(key, roClient, rwClient) {
     throw new Error('Read-Only database client not specified or invalid');
   }
 
-  // Read-write client, default to RO-client if unspecified
+  // Read-write client, default to RO if unspecified
   if (!rwClient) {
-    rwClient = roClient; // RO/RW is the same if unspecified
+    rwClient = roClient;
   } else if (!(rwClient instanceof DbClient)) {
     throw new Error('Read-Write database client is invalid');
   }

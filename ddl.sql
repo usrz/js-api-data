@@ -113,7 +113,7 @@ ALTER TABLE "domains"
   ADD CONSTRAINT "domains_encryption_keys_uuid_fkey"
       FOREIGN KEY ("encryption_key") REFERENCES "encryption_keys" ("uuid");
 
--- Hack-a-majig: We want "domains" to look like everything else (having, thus a
+-- Hack-a-majig: We want "domains" to look like everything else (this having a
 -- "domain" owner). This simplifies the code on the store side (avoid copy and
 -- paste) but we want to make sure on insert that the UUID stored is the same
 CREATE FUNCTION "fn_insert_domain_trigger" () RETURNS TRIGGER AS $$

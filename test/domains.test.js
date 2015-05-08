@@ -6,7 +6,7 @@ const KeyManager = require('../src/key-manager');
 const uuid = require('../src/uuid');
 const pg = require('pg');
 
-describe('Domains', function() {
+describe.skip('Domains', function() {
 
   var file = require('path').resolve(__dirname, '../ddl.sql');
   var ddl = require('fs').readFileSync(file).toString('utf8');

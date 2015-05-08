@@ -2,14 +2,15 @@
 
 const DbStore = require('./db-store');
 const UUID = require('./uuid');
-const util = require('util');
 
 const domain_placeholder = UUID.NULL.toString();
 const domains = new WeakMap();
+const users = new WeakMap();
 
 class Domains {
   constructor(keyManager, roClient, rwClient) {
     domains.set(this, new DbStore("domains", keyManager, roClient, rwClient));
+    users.set(this, new DbStore("users", keyManager, roClient, rwClient));
   }
 
   find(uuid, include_deleted) {
@@ -26,6 +27,10 @@ class Domains {
 
   delete(uuid) {
     return domains.get(this).delete(uuid);
+  }
+
+  users(uuid) {
+    return users.get(this).domain(uuid);
   }
 }
 

@@ -9,7 +9,7 @@ const UUID = require('./uuid');
 const INSERT_SQL = 'INSERT INTO "encryption_keys" ("encrypted_key") VALUES ($1::bytea) RETURNING *';
 const SELECT_ALL_SQL = 'SELECT * FROM "encryption_keys"';
 const SELECT_SQL = SELECT_ALL_SQL + ' WHERE "uuid"=$1::uuid';
-const DELETE_SQL = 'DELETE FROM "encryption_keys" WHERE "uuid"=$1::uuid';
+const DELETE_SQL = 'UPDATE "encryption_keys" SET "deleted_at" = NOW() WHERE "uuid"=$1::uuid AND "deleted_at" IS NULL RETURNING *';
 
 // v1 (buffer) v2 (string) v3 (json) encryption:
 // - AES-256-GCM with AAD using Vx_TAG
@@ -237,27 +237,11 @@ class KeyManager {
      * ---------------------------------------------------------------------- */
 
     this.delete = function delkey(uuid) {
-      // This runs in a transaction
-      return rwClient.transaction(function(query) {
-        // Check if we haven't deleted before
-        return query(SELECT_SQL + ' AND deleted_at IS NULL FOR UPDATE', uuid)
-          .then(function(result) {
-            // No valid result? Skip the rests
-            if ((! result) || (! result.rows) || (! result.rows[0])) return null;
-
-            // Actually delete the result
-            return query(DELETE_SQL, uuid)
-              .then(function(result) {
-                return query(SELECT_SQL, uuid);
-              })
-
-              .then(function(result) {
-                // Return the old key, but with "deleted_at" set
-                if ((! result) || (! result.rows) || (! result.rows[0])) return null;
-                return newKey(result.rows[0]);
-              })
-          })
-      });
+      return rwClient.query(DELETE_SQL, uuid)
+        .then(function(result) {
+          if ((! result) || (! result.rows) || (! result.rows[0])) return null;
+          return newKey(result.rows[0]);
+        })
     }
 
     /* ---------------------------------------------------------------------- *

@@ -157,22 +157,13 @@ class Key {
 
 class KeyManager {
 
-  constructor (key, roClient, rwClient) {
+  constructor (key, client) {
 
     // Wrap the global encryption key
     key = new Key(UUID.NULL, key);
 
     // Access to our database (RO/RW)
-    if (!(roClient instanceof DbClient)) {
-      throw new Error('Read-Only database client not specified or invalid');
-    }
-
-    // Read-write client, default to RO if unspecified
-    if (!rwClient) {
-      rwClient = roClient;
-    } else if (!(rwClient instanceof DbClient)) {
-      throw new Error('Read-Write database client is invalid');
-    }
+    if (!(client instanceof DbClient)) throw new Error('Database client not specified or invalid');
 
     // Our caches
     var valid_keys = {};
@@ -212,7 +203,7 @@ class KeyManager {
         var encrypted_key = '\\x' + key.encrypt(encryption_key).data.toString('hex');
 
         // Store in the database
-        resolve(rwClient.query(INSERT_SQL, encrypted_key)
+        resolve(client.query(true, INSERT_SQL, encrypted_key)
           .then(function(result) {
             if ((! result) || (! result.rows) || (! result.rows[0])) throw new Error('No results');
             return newKey(result.rows[0]);
@@ -225,7 +216,7 @@ class KeyManager {
      * ---------------------------------------------------------------------- */
 
     this.load = function load(uuid) {
-      return roClient.query(SELECT_SQL, uuid)
+      return client.query(false, SELECT_SQL, uuid)
         .then(function(result) {
           if ((! result) || (! result.rows) || (! result.rows[0])) return null;
           return newKey(result.rows[0]);
@@ -237,7 +228,7 @@ class KeyManager {
      * ---------------------------------------------------------------------- */
 
     this.delete = function delkey(uuid) {
-      return rwClient.query(DELETE_SQL, uuid)
+      return client.query(true, DELETE_SQL, uuid)
         .then(function(result) {
           if ((! result) || (! result.rows) || (! result.rows[0])) return null;
           return newKey(result.rows[0]);
@@ -249,7 +240,7 @@ class KeyManager {
      * ---------------------------------------------------------------------- */
 
     this.loadAll = function loadAll() {
-      return roClient.query(SELECT_ALL_SQL)
+      return client.query(false, SELECT_ALL_SQL)
         .then(function(result) {
           if ((! result) || (! result.rows) || (! result.rows[0])) return {};
 

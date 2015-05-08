@@ -15,7 +15,7 @@ describe('Encryption Key Manager', function() {
   before(testdb.before);
   before(function() {
     var masterKey = new Buffer(32).fill(0);
-    keyManager = new KeyManager(masterKey, testdb.ro_client, testdb.rw_client);
+    keyManager = new KeyManager(masterKey, testdb.client);
   })
   after(testdb.after);
 
@@ -42,6 +42,7 @@ describe('Encryption Key Manager', function() {
   });
 
   it('should verify that keys do not equal each other', function() {
+    if (! keys) this.skip();
     for (var i = 0; i < keys.length - 1; i++) {
       for (var j = i + 1; j < keys.length; j++) {
         expect(keys[i].equals(keys[j])).to.be.false;
@@ -50,6 +51,7 @@ describe('Encryption Key Manager', function() {
   });
 
   it('should return a valid random key', function(done) {
+    if (! keys) this.skip();
     keyManager.get().then(function(key) {
       for (var i = 0; i < keys.length; i++) {
         if (keys[i].uuid == key.uuid) return done();

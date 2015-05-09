@@ -3,10 +3,8 @@
 const expect = require('chai').expect;
 const KeyManager = require('../src/key-manager');
 const DbStore = require('../src/db-store');
-const uuid = require('../src/uuid');
-const pg = require('pg');
 
-describe.only('Database Store', function() {
+describe('Database Store', function() {
 
   const parent = '00000000-0000-0000-0000-000000000000';
   var file1 = require('path').resolve(__dirname, '../ddl.sql');
@@ -39,7 +37,7 @@ describe.only('Database Store', function() {
   })
 
   it('should return null fetching an unknown value', function(done) {
-    store.select(uuid.v4())
+    store.select('78adc7c5-e021-4507-81c3-51ee579c4bb4')
       .then(function(value) {
         expect(value).to.be.null;
         done();

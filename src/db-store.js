@@ -53,6 +53,9 @@ class DbObject {
 /* ========================================================================== *
  * DB STORE CLASS                                                             *
  * ========================================================================== */
+
+var instances = new WeakMap();
+
 class DbStore {
   constructor(tableName, keyManager, client) {
 
@@ -71,20 +74,11 @@ class DbStore {
     const UPDATE_SQL = `UPDATE "${tableName}" SET "encryption_key" = $2::uuid, "encrypted_data" = $3::bytea WHERE "uuid" = $1::uuid RETURNING *`;
     const DELETE_SQL = `UPDATE "${tableName}" SET "deleted_at" = NOW() WHERE "uuid" = $1::uuid RETURNING *`;
 
-    // This instance
-    var self = this;
-
     /* ---------------------------------------------------------------------- *
-     * "Private" utility methods to encrypt, decrypt, and validate uuids      *
+     * Utility methods to decrypt (nice errors), find (for select, exists)    *
      * ---------------------------------------------------------------------- */
 
-    function encrypt(attributes) {
-      return keyManager.get().then(function(encryption_key) {
-        if (encryption_key == null) throw new Error('No encryption key available');
-        return encryption_key.encrypt(attributes);
-      });
-    }
-
+     // Decrypt with nice messages
     function decrypt(row) {
       return Promise.resolve(row)
         .then(function(row) {
@@ -101,19 +95,13 @@ class DbStore {
         });
     }
 
-    function validate(uuid) {
-      try {
-        return Promise.resolve(UUID(uuid).toString());
-      } catch (error) {
-        return Promise.resolve(null);
-      }
-    }
+     // Find a DB row, used by select and exists below
+    var self = this;
+    function find(uuid, include_deleted, query) {
 
-    /* ---------------------------------------------------------------------- *
-     * Check whether the specified uuid is valid                              *
-     * ---------------------------------------------------------------------- */
-
-    this.exists = function exists(uuid, include_deleted, query) {
+      // Null for invalid UUIDs
+      uuid = UUID.validate(uuid);
+      if (! uuid) return Promise.resolve(null);
 
       // Check for optional parameters
       if (typeof(include_deleted) === 'function') {
@@ -121,160 +109,165 @@ class DbStore {
         include_deleted = false;
       }
 
+      // No query? Connect for "SELECT" (no updates)
       if (! query) return client.connect(false, function(query) {
-        return self.exists(uuid, include_deleted, query);
+        return find(uuid, include_deleted, query);
       });
 
-      return validate(uuid)
-        .then(function(uuid) {
-          if (! uuid) return false;
-
-          var sql = SELECT_SQL;
-          if (! include_deleted) sql += ' AND deleted_at IS NULL';
-
-          return query(sql, uuid)
-            .then(function(result) {
-              return (result && result.rows && result.rows[0]);
-            });
-        })
+      // Execute our SQL
+      var sql = instances.get(self).SELECT_SQL;
+      if (! include_deleted) sql += ' AND deleted_at IS NULL';
+      return query(sql, uuid);
     }
 
-    /* ---------------------------------------------------------------------- *
-     * Select a single record out of the DB                                   *
-     * ---------------------------------------------------------------------- */
+    // Remember our instance variables
+    instances.set(this, {
+      SELECT_SQL: `SELECT * FROM "${tableName}" WHERE "uuid" = $1::uuid`,
+      PARENT_SQL: `SELECT * FROM "${tableName}" WHERE "parent" = $1::uuid`,
+      INSERT_SQL: `INSERT INTO "${tableName}" ("parent", "encryption_key", "encrypted_data") VALUES ($1::uuid, $2::uuid, $3::bytea) RETURNING *`,
+      UPDATE_SQL: `UPDATE "${tableName}" SET "encryption_key" = $2::uuid, "encrypted_data" = $3::bytea WHERE "uuid" = $1::uuid RETURNING *`,
+      DELETE_SQL: `UPDATE "${tableName}" SET "deleted_at" = NOW() WHERE "uuid" = $1::uuid RETURNING *`,
+      encrypt: keyManager.encrypt.bind(keyManager),
+      decrypt: decrypt.bind(this),
+      find: find.bind(this),
+      client: client
+    })
+  }
 
-    this.select = function select(uuid, include_deleted, query) {
+  /* ---------------------------------------------------------------------- *
+   * Check whether the specified uuid is valid (quick, no decryption)       *
+   * ---------------------------------------------------------------------- */
 
-      // Check for optional parameters
-      if (typeof(include_deleted) === 'function') {
-        query = include_deleted;
-        include_deleted = false;
-      }
-
-      if (! query) return client.connect(false, function(query) {
-        return self.select(uuid, include_deleted, query);
+  exists(uuid, include_deleted, query) {
+    return instances.get(this).find(uuid, include_deleted, query)
+      .then(function(result) {
+        return (result && result.rows && result.rows[0]);
       });
+  }
 
-      return validate(uuid)
-        .then(function(uuid) {
-          if (! uuid) return null;
+  /* ------------------------------------------------------------------------ *
+   * Select a single record out of the DB                                     *
+   * ------------------------------------------------------------------------ */
 
-          var sql = SELECT_SQL;
-          if (! include_deleted) sql += ' AND deleted_at IS NULL';
-
-          return query(sql, uuid)
-            .then(function(result) {
-              if ((! result) || (! result.rows) || (! result.rows[0])) return null;
-              return decrypt(result.rows[0]);
-            });
-        })
-    }
-
-    /* ---------------------------------------------------------------------- *
-     * Find all records having the specified parent                           *
-     * ---------------------------------------------------------------------- */
-
-    this.parent = function parent(uuid, include_deleted, query) {
-
-      // Check for optional parameters
-      if (typeof(include_deleted) === 'function') {
-        query = include_deleted;
-        include_deleted = false;
-      }
-
-      if (! query) return client.connect(false, function(query) {
-        return self.select(uuid, include_deleted, query);
+  select(uuid, include_deleted, query) {
+    var inst = instances.get(this);
+    return inst.find(uuid, include_deleted, query)
+      .then(function(result) {
+        if ((! result) || (! result.rows) || (! result.rows[0])) return null;
+        return inst.decrypt(result.rows[0]);
       });
+  }
 
-      return validate(uuid)
-        .then(function(uuid) {
-          if (! uuid) return null;
+  /* ------------------------------------------------------------------------ *
+   * Find all records having the specified parent                             *
+   * ------------------------------------------------------------------------ */
 
-          var sql = PARENT_SQL;
-          if (! include_deleted) sql += ' AND deleted_at IS NULL';
+  parent(uuid, include_deleted, query) {
+    var inst = instances.get(this);
+    var self = this;
 
-          return query(sql, uuid)
-            .then(function(result) {
-              if ((! result) || (! result.rows) || (! result.rows[0])) return [];
-              var promises = [];
-              for (var i in result.rows) promises.push(decrypt(result.rows[i]));
-              return Promise.all(promises);
-            });
-        })
+    // Null for invalid UUIDs
+    uuid = UUID.validate(uuid);
+    if (! uuid) return Promise.resolve(null);
+
+    // Check for optional parameters
+    if (typeof(include_deleted) === 'function') {
+      query = include_deleted;
+      include_deleted = false;
     }
 
-    /* ---------------------------------------------------------------------- *
-     * Insert a new record in the DB                                          *
-     * ---------------------------------------------------------------------- */
+    if (! query) return inst.client.connect(false, function(query) {
+      return self.select(uuid, include_deleted, query);
+    });
 
-    this.insert = function insert(parent, attributes, query) {
-      if (! query) return client.connect(true, function(query) {
-        return self.insert(parent, attributes, query);
+    var sql = inst.PARENT_SQL;
+    if (! include_deleted) sql += ' AND deleted_at IS NULL';
+
+    return query(sql, uuid)
+      .then(function(result) {
+        if ((! result) || (! result.rows) || (! result.rows[0])) return [];
+        var promises = [];
+        for (var i in result.rows) {
+          promises.push(inst.decrypt(result.rows[i]));
+        }
+        return Promise.all(promises);
       });
+  }
 
-      return validate(parent)
-        .then(function(parent) {
-          if (! parent) return null;
-          return encrypt(attributes)
-        })
-        .then(function(encrypted) {
-          return query(INSERT_SQL, parent, encrypted.key, encrypted.data)
-            .then(function(result) {
-              if ((! result) || (! result.rows) || (! result.rows[0])) return null;
-              return decrypt(result.rows[0]); // triple-check decryption
-            });
-        });
-    }
+  /* ------------------------------------------------------------------------ *
+   * Insert a new record in the DB                                            *
+   * ------------------------------------------------------------------------ */
 
-    /* ---------------------------------------------------------------------- *
-     * Update an existing record in the DB                                    *
-     * ---------------------------------------------------------------------- */
+  insert(parent, attributes, query) {
+    var inst = instances.get(this);
+    var self = this;
 
-    this.update = function update(uuid, attributes, query) {
-      if (! query) return client.connect(true, function(query) {
-        return self.update(uuid, attributes, query);
+    // Null for invalid UUIDs
+    parent = UUID.validate(parent);
+    if (! parent) return Promise.resolve(null);
+
+    if (! query) return inst.client.connect(true, function(query) {
+      return self.insert(parent, attributes, query);
+    });
+
+    return inst.encrypt(attributes)
+      .then(function(encrypted) {
+        return query(inst.INSERT_SQL, parent, encrypted.key, encrypted.data)
+          .then(function(result) {
+            if ((! result) || (! result.rows) || (! result.rows[0])) return null;
+            return inst.decrypt(result.rows[0]); // triple-check decryption
+          });
       });
+  }
 
-      return validate(uuid)
-        .then(function(uuid) {
-          if (! uuid) return null;
+  /* ------------------------------------------------------------------------ *
+   * Update an existing record in the DB                                      *
+   * ------------------------------------------------------------------------ */
 
-          return self.select(uuid, query)
-            .then(function(result) {
-              if (! result) return null;;
+  update(uuid, attributes, query) {
+    var inst = instances.get(this);
+    var self = this;
 
-              // Merge and encrypt...
-              return encrypt(merge(result.attributes, attributes))
-                .then(function(encrypted) {
-                  return query(UPDATE_SQL, uuid, encrypted.key, encrypted.data)
-                    .then(function(result) {
-                      if ((! result) || (! result.rows) || (! result.rows[0])) return null;
-                      return decrypt(result.rows[0]); // triple-check decryption
-                    });
-                });
-            });
-        });
-    }
+    if (! query) return inst.client.connect(true, function(query) {
+      return self.update(uuid, attributes, query);
+    });
 
-    /* ---------------------------------------------------------------------- *
-     * Soft delete from the DB and return old record                          *
-     * ---------------------------------------------------------------------- */
-    this.delete = function delete_(uuid, query) {
-      if (! query) return client.connect(true, function(query) {
-        return self.delete(uuid, query);
+    return self.select(uuid, query)
+      .then(function(result) {
+        if (! result) return null;;
+
+        // Merge and encrypt...
+        return inst.encrypt(merge(result.attributes, attributes))
+          .then(function(encrypted) {
+            return query(inst.UPDATE_SQL, uuid, encrypted.key, encrypted.data)
+              .then(function(result) {
+                if ((! result) || (! result.rows) || (! result.rows[0])) return null;
+                return inst.decrypt(result.rows[0]); // triple-check decryption
+              });
+          });
       });
+  }
 
-      return validate(uuid)
-        .then(function(uuid) {
-          if (! uuid) return null;
+  /* ------------------------------------------------------------------------ *
+   * Soft delete from the DB and return old record                            *
+   * ------------------------------------------------------------------------ */
+  delete(uuid, query) {
+    var inst = instances.get(this);
+    var self = this;
 
-          return query(DELETE_SQL, uuid)
-            .then(function(result) {
-              if ((! result) || (! result.rows) || (! result.rows[0])) return null;
-              return decrypt(result.rows[0]);
-            });
-        });
-    }
+    // Null for invalid UUIDs
+    uuid = UUID.validate(uuid);
+    if (! uuid) return Promise.resolve(null);
+
+    if (! query) return inst.client.connect(true, function(query) {
+      return self.delete(uuid, query);
+    });
+
+    return query(inst.DELETE_SQL, uuid)
+      .then(function(result) {
+        if ((! result) || (! result.rows) || (! result.rows[0])) return null;
+        return inst.decrypt(result.rows[0]);
+      });
   }
 }
 

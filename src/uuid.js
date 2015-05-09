@@ -342,7 +342,7 @@ UUID.NS_DNS =  new UUID('6ba7b810-9dad-11d1-80b4-00c04fd430c8');
 UUID.NS_URL =  new UUID('6ba7b811-9dad-11d1-80b4-00c04fd430c8');
 UUID.NS_OID =  new UUID('6ba7b812-9dad-11d1-80b4-00c04fd430c8');
 UUID.NS_X500 = new UUID('6ba7b814-9dad-11d1-80b4-00c04fd430c8');
-UUID.NULL =    new UUID("00000000-0000-0000-0000-000000000000");
+UUID.NULL =    new UUID('00000000-0000-0000-0000-000000000000');
 
 /* ========================================================================== *
  * MODULE EXPORTS                                                             *

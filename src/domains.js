@@ -2,6 +2,7 @@
 
 const DbStore = require('./db-store');
 
+const parent = '00000000-0000-0000-0000-000000000000';
 const domains = new WeakMap();
 
 class Domains {
@@ -14,7 +15,7 @@ class Domains {
   }
 
   create(attributes) {
-    return domains.get(this).insert(attributes);
+    return domains.get(this).insert(parent, attributes);
   }
 
   modify(uuid, attributes) {

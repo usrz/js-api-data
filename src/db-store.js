@@ -42,6 +42,7 @@ function merge(one, two) {
 class DbObject {
   constructor (row, attributes) {
     this.uuid = row.uuid;
+    this.parent = row.parent;
     this.created_at = row.created_at || null;
     this.updated_at = row.updated_at || null;
     this.deleted_at = row.deleted_at || null;
@@ -63,12 +64,10 @@ class DbStore {
     // Access to our database (RO/RW)
     if (!(client instanceof DbClient)) throw new Error('Database client not specified or invalid');
 
-    // Expose clients to users
-    this.client;
-
     // Our SQL statements
     const SELECT_SQL = `SELECT * FROM "${tableName}" WHERE "uuid" = $1::uuid`;
-    const INSERT_SQL = `INSERT INTO "${tableName}" ("encryption_key", "encrypted_data") VALUES ($1::uuid, $2::bytea) RETURNING *`;
+    const PARENT_SQL = `SELECT * FROM "${tableName}" WHERE "parent" = $1::uuid`;
+    const INSERT_SQL = `INSERT INTO "${tableName}" ("parent", "encryption_key", "encrypted_data") VALUES ($1::uuid, $2::uuid, $3::bytea) RETURNING *`;
     const UPDATE_SQL = `UPDATE "${tableName}" SET "encryption_key" = $2::uuid, "encrypted_data" = $3::bytea WHERE "uuid" = $1::uuid RETURNING *`;
     const DELETE_SQL = `UPDATE "${tableName}" SET "deleted_at" = NOW() WHERE "uuid" = $1::uuid RETURNING *`;
 
@@ -172,17 +171,54 @@ class DbStore {
     }
 
     /* ---------------------------------------------------------------------- *
+     * Find all records having the specified parent                           *
+     * ---------------------------------------------------------------------- */
+
+    this.parent = function parent(uuid, include_deleted, query) {
+
+      // Check for optional parameters
+      if (typeof(include_deleted) === 'function') {
+        query = include_deleted;
+        include_deleted = false;
+      }
+
+      if (! query) return client.connect(false, function(query) {
+        return self.select(uuid, include_deleted, query);
+      });
+
+      return validate(uuid)
+        .then(function(uuid) {
+          if (! uuid) return null;
+
+          var sql = PARENT_SQL;
+          if (! include_deleted) sql += ' AND deleted_at IS NULL';
+
+          return query(sql, uuid)
+            .then(function(result) {
+              if ((! result) || (! result.rows) || (! result.rows[0])) return [];
+              var promises = [];
+              for (var i in result.rows) promises.push(decrypt(result.rows[i]));
+              return Promise.all(promises);
+            });
+        })
+    }
+
+    /* ---------------------------------------------------------------------- *
      * Insert a new record in the DB                                          *
      * ---------------------------------------------------------------------- */
 
-    this.insert = function insert(attributes, query) {
+    this.insert = function insert(parent, attributes, query) {
       if (! query) return client.connect(true, function(query) {
-        return self.insert(attributes, query);
+        return self.insert(parent, attributes, query);
       });
 
-      return encrypt(attributes)
+      return validate(parent)
+        .then(function(parent) {
+          if (! parent) return null;
+          return encrypt(attributes)
+        })
         .then(function(encrypted) {
-          return query(INSERT_SQL, encrypted.key, encrypted.data)
+          return query(INSERT_SQL, parent, encrypted.key, encrypted.data)
             .then(function(result) {
               if ((! result) || (! result.rows) || (! result.rows[0])) return null;
               return decrypt(result.rows[0]); // triple-check decryption

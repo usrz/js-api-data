@@ -79,6 +79,7 @@ CREATE FUNCTION "fn_update_trigger" () RETURNS TRIGGER AS $$
 BEGIN
   -- Raise exception if attempting to update anything
   IF (OLD.uuid       != NEW.uuid)   OR
+     (OLD.parent     != NEW.parent) OR
      (OLD.created_at != NEW.created_at)
   THEN
     RAISE EXCEPTION 'Attempting to update "%" values for key "%"', TG_TABLE_NAME, OLD.uuid;
@@ -96,6 +97,7 @@ $$ LANGUAGE 'plpgsql';
 
 CREATE TABLE "domains" (
   "uuid"           UUID                     NOT NULL DEFAULT uuid_generate_v4(),
+  "parent"         UUID                     NOT NULL,
   "encryption_key" UUID                     NOT NULL,
   "encrypted_data" BYTEA                    NOT NULL,
   "created_at"     TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
@@ -106,8 +108,24 @@ CREATE TABLE "domains" (
 ALTER TABLE "domains"
   ADD CONSTRAINT "domains_pkey"
       PRIMARY KEY ("uuid"),
+  ADD CONSTRAINT "domains_domains_uuid_fkey"
+      FOREIGN KEY ("parent") REFERENCES "domains" ("uuid"),
   ADD CONSTRAINT "domains_encryption_keys_uuid_fkey"
       FOREIGN KEY ("encryption_key") REFERENCES "encryption_keys" ("uuid");
+
+-- Hack-a-majig: We want "domains" to look like everything else (this having a
+-- "parent" owner). This simplifies the code on the store side (avoid copy and
+-- paste) but we want to make sure on insert that domains have self as parent
+CREATE FUNCTION "fn_insert_domain_trigger" () RETURNS TRIGGER AS $$
+BEGIN
+  NEW.parent = NEW.uuid;
+  RETURN NEW;
+END;
+$$ LANGUAGE 'plpgsql';
+
+-- Ensure "parent" is equal to "uuid"
+CREATE TRIGGER "domains_insert" BEFORE INSERT ON "domains"
+  FOR EACH ROW EXECUTE PROCEDURE "fn_insert_domain_trigger" ();
 
 -- Protect against updates
 CREATE TRIGGER "domains_update" BEFORE UPDATE ON "domains"
@@ -127,6 +145,7 @@ CREATE RULE "domains_delete" AS ON DELETE TO "domains" DO INSTEAD
 
 CREATE TABLE "users" (
   "uuid"           UUID                     NOT NULL DEFAULT uuid_generate_v4(),
+  "parent"         UUID                     NOT NULL,
   "encryption_key" UUID                     NOT NULL,
   "encrypted_data" BYTEA                    NOT NULL,
   "created_at"     TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
@@ -137,6 +156,8 @@ CREATE TABLE "users" (
 ALTER TABLE "users"
   ADD CONSTRAINT "users_pkey"
       PRIMARY KEY ("uuid"),
+  ADD CONSTRAINT "users_domains_uuid_fkey"
+      FOREIGN KEY ("parent") REFERENCES "domains" ("uuid"),
   ADD CONSTRAINT "users_encryption_keys_uuid_fkey"
       FOREIGN KEY ("encryption_key") REFERENCES "encryption_keys" ("uuid");
 

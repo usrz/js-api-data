@@ -113,8 +113,15 @@ class DbClient extends EventEmitter {
           });
         }.bind(self);
 
+        // Promise the callback
+        var promise = null;
+        try {
+          promise = callback(query);
+        } catch (error) {
+          promise = Promise.reject(error);
+        }
+
         // Callback must return a promise
-        var promise = callback(query);
         if ((! promise) || (typeof(promise.then) !== 'function')) {
           promise = Promise.reject(new Error('Callback did not return a Promise'));
         }
@@ -143,8 +150,15 @@ class DbClient extends EventEmitter {
       return query('BEGIN')
         .then(function() {
 
+          // Promise the callback
+          var promise = null;
+          try {
+            promise = callback(query);
+          } catch (error) {
+            promise = Promise.reject(error);
+          }
+
           // Callback must return a promise
-          var promise = callback(query);
           if ((! promise) || (typeof(promise.then) !== 'function')) {
             promise = Promise.reject(new Error('Callback did not return a promise'));
           }

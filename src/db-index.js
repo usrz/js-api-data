@@ -17,7 +17,7 @@ class DbIndex {
     if (!(client instanceof DbClient)) throw new Error('Database client not specified or invalid');
 
     instances.set(this, {
-      SELECT_SQL: `SELECT DISTINCT("owner") FROM "${tableName}" WHERE "value" IN `,
+      SELECT_SQL: `SELECT "owner" FROM "${tableName}" WHERE "scope" = $1::uuid AND "value" = $2::uuid`,
       INSERT_SQL: `INSERT INTO "${tableName}" ("scope", "owner", "value") VALUES `,
       DELETE_SQL: `DELETE FROM "${tableName}" WHERE "scope" = $1::uuid AND "owner" = $2::uuid`,
       client: client
@@ -68,19 +68,19 @@ class DbIndex {
   }
 
   /* ------------------------------------------------------------------------ *
-   * Find any owner matching the specified attributes (OR) in the given scope *
+   * Find any owner matching the specified attribute in the given scope       *
    * ------------------------------------------------------------------------ */
-  find(scope, attributes, query) {
+  find(scope, key, value, query) {
     var inst = instances.get(this);
     var self = this;
 
     // Empty array for invalud UUIDs
     scope = UUID.validate(scope);
-    if (! scope) return Promise.resolve([]);
+    if (! scope) return Promise.resolve(null);
 
     // Connect to the DB if not already
     if (! query) return inst.client.connect(function(query) {
-      return self.find(scope, attributes, query);
+      return self.find(scope, key, value, query);
     });
 
     // Wrap into a promise
@@ -88,26 +88,14 @@ class DbIndex {
         var sql = [];
         var parameters = [];
 
-        // For each attribute, calculate its V5 UUID
-        Object.keys(attributes).forEach(function (key) {
-          var value = attributes[key];
-          if (value != null) { // Null? Don't search!
-            var value = UUID.v5(scope, key + ":" + attributes[key]);
-            var param = parameters.push(value);
-            sql.push('$' + param);
-          }
-        });
-
-        // No parameters? Do nothing...
-        if (parameters.length == 0) return [];
+        // Calculate the attribute V5 UUID
+        var uuid = UUID.v5(scope, key + ":" + value);
 
         // Insert our indexable values...
-        resolve(query(inst.SELECT_SQL + '(' + sql.join(', ') + ')', parameters)
+        resolve(query(inst.SELECT_SQL, scope, uuid)
           .then(function(result) {
-            if ((! result) || (! result.rows) || (! result.rows[0])) return [];
-            var owners = [];
-            for (var i in result.rows) owners.push(result.rows[i].owner);
-            return owners;
+            if ((! result) || (! result.rows) || (! result.rows[0])) return null;
+            return result.rows[0].owner;
           }));
     });
   }

@@ -3,7 +3,7 @@
 const expect = require('chai').expect;
 const DbIndex = require('../src/db-index');
 
-describe('Database Index', function() {
+describe.only('Database Index', function() {
 
   const scope1 = '125036e8-d182-41a4-ad65-2a06180e7fe0';
   const scope2 = '4656dada-b495-43e8-bdce-27f3aa2096e8';
@@ -50,12 +50,12 @@ describe('Database Index', function() {
       .then(function(result) {
         expect(result.rows.length).to.equal(6);
         expect(result.rows).to.deep.include.members([
-          { scope: scope1, owner: owner1, value: 'b12a133a-65ea-5e79-a846-a540b4cc2d89' },
-          { scope: scope1, owner: owner1, value: '03b1fb8c-bd70-59bf-b79e-e41a6ffed9c0' },
-          { scope: scope1, owner: owner2, value: 'b552e0dd-33a0-5b95-8631-9fbe748c9f92' },
-          { scope: scope1, owner: owner2, value: 'd3287628-11e6-52c5-ab8c-4a685fffcdce' },
-          { scope: scope2, owner: owner1, value: '93a8d45e-1795-598c-a7a0-fa7016a86190' },
-          { scope: scope2, owner: owner1, value: 'ca323926-cfc2-5149-afbc-f542c7aa393d' },
+          { scope: scope1, owner: owner1, value: 'b12a133a-65ea-5e79-a846-a540b4cc2d89' }, // foo:bar
+          { scope: scope1, owner: owner1, value: '03b1fb8c-bd70-59bf-b79e-e41a6ffed9c0' }, // baz:123
+          { scope: scope1, owner: owner2, value: 'b552e0dd-33a0-5b95-8631-9fbe748c9f92' }, // foo:baz
+          { scope: scope1, owner: owner2, value: 'd3287628-11e6-52c5-ab8c-4a685fffcdce' }, // baz:321
+          { scope: scope2, owner: owner1, value: '93a8d45e-1795-598c-a7a0-fa7016a86190' }, // foo:bar
+          { scope: scope2, owner: owner1, value: 'ca323926-cfc2-5149-afbc-f542c7aa393d' }, // baz:123
         ]);
         done();
       })
@@ -63,24 +63,29 @@ describe('Database Index', function() {
   });
 
   it('should find the correct values', function(done) {
-    index.find(scope1, { foo: "bar" })
+    index.find(scope1, "foo", "bar" )
       .then(function(result) {
-        expect(result.length).to.equal(1);
-        expect(result[0]).to.equal(owner1);
-        return index.find(scope1, { foo: "baz" })
+        expect(result).to.equal(owner1);
+        return index.find(scope1, "foo", "baz")
       })
       .then(function(result) {
-        expect(result.length).to.equal(1);
-        expect(result[0]).to.equal(owner2);
-        return index.find(scope1, { foo: "bar", baz: 321 })
+        expect(result).to.equal(owner2);
+        return index.find(scope1, "baz", 123)
       })
       .then(function(result) {
-        expect(result.length).to.equal(2);
-        expect(result).to.include.members([ owner1, owner2 ]);
-        return index.find(scope1, { gonzo: "xyz" }); // not strict
+        expect(result).to.equal(owner1);
+        return index.find(scope1, "baz", 321)
       })
       .then(function(result) {
-        expect(result.length).to.equal(0);
+        expect(result).to.equal(owner2);
+        return index.find(scope2, "foo", "bar")
+      })
+      .then(function(result) {
+        expect(result).to.equal(owner1);
+        return index.find(scope2, "foo", "baz")
+      })
+      .then(function(result) {
+        expect(result).to.be.null;
         done();
       })
       .catch(done);

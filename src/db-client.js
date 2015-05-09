@@ -111,7 +111,7 @@ class DbClient extends EventEmitter {
 
             });
           });
-        };
+        }.bind(self);
 
         // Callback must return a promise
         var promise = callback(query);

@@ -91,21 +91,22 @@ class DbClient extends EventEmitter {
 
         // Our query function
         var query = function query(statement) {
-          var parameters = Array.prototype.slice.call(arguments, 1);
+          var params = Array.prototype.slice.call(arguments, 1);
+          if ((params.length == 1) && (Array.isArray(params[0]))) params = params[0];
           return new Promise(function(resolveQuery, rejectQuery) {
-            client.query(statement.toString(), parameters, function(err, result) {
+            client.query(statement.toString(), params, function(err, result) {
               if (err) {
                 self.emit('exception', err);
                 var message = 'Error executing query "' + statement + '"';
-                message += " with " + parameters.length + " parameters"
-                for (var i = 0; i < parameters.length; i ++) {
-                  message += "\n  - $" + i + " := " + util.inspect(parameters[i]);
+                message += " with " + params.length + " parameters"
+                for (var i = 0; i < params.length; i ++) {
+                  message += "\n  - $" + i + " := " + util.inspect(params[i]);
                 }
                 message += "\n  - DB := " + uri;
                 return rejectQuery(new DbError(message, err));
               }
 
-              self.emit('query', statement, parameters);
+              self.emit('query', statement, params);
               resolveQuery(result);
 
             });

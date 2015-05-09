@@ -334,6 +334,21 @@ UUID.v5 = function v5(namespace, name) {
   return UUID.v5uuid.apply(null, arguments).toString();
 }
 
+/* ========================================================================== */
+
+UUID.validateuuid = function validate(uuid) {
+  try {
+    return UUID(uuid);
+  } catch (error) {
+    return null;
+  }
+}
+
+UUID.validate = function validate(uuid) {
+  var uuid = UUID.validateuuid(uuid);
+  return uuid ? uuid.toString() : null;
+}
+
 /* ========================================================================== *
  * CONSTANT/KNOWN UUIDs                                                       *
  * ========================================================================== */

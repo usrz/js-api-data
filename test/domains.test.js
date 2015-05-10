@@ -27,10 +27,9 @@ describe('Domains', function() {
       }, function(error) {
         expect(error.validation).to.eql({
           name: [ "Name can't be blank",
-                  'Name must be a string' ],
+                  "Name must be a string" ],
           domain_name: [ "Domain name can't be blank",
-                         'Domain name must be a string',
-                         'Domain name must be a string' ]
+                         "Domain name must be a string" ]
         });
         done();
       })

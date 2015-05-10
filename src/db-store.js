@@ -103,12 +103,6 @@ class DbStore {
       uuid = UUID.validate(uuid);
       if (! uuid) return Promise.resolve(null);
 
-      // Check for optional parameters
-      if (typeof(include_deleted) === 'function') {
-        query = include_deleted;
-        include_deleted = false;
-      }
-
       // No query? Connect for "SELECT" (no updates)
       if (! query) return client.connect(false, function(query) {
         return find(uuid, include_deleted, query);
@@ -151,6 +145,13 @@ class DbStore {
 
   select(uuid, include_deleted, query) {
     var inst = instances.get(this);
+
+    // Check for optional "include_deleted"
+    if (typeof(include_deleted) === 'function') {
+      query = include_deleted;
+      include_deleted = false;
+    }
+
     return inst.find(uuid, include_deleted, query)
       .then(function(result) {
         if ((! result) || (! result.rows) || (! result.rows[0])) return null;

@@ -65,6 +65,15 @@ describe('Domains', function() {
       .catch(done);
   });
 
+  it('should make sure that the domain exists', function(done) {
+    domains.exists(domain.uuid)
+      .then(function(exists) {
+        expect(exists).to.be.true;
+        done();
+      })
+      .catch(done);
+  });
+
   it('should retrieve the created domain', function(done) {
     domains.get(domain.uuid)
       .then(function(gotten) {
@@ -110,6 +119,12 @@ describe('Domains', function() {
       })
       .then(function(gotten) {
         expect(gotten).to.eql(domain);
+
+        // Must not "exist"
+        return domains.exists(domain.uuid);
+      })
+      .then(function(exists) {
+        expect(exists).to.be.false;
         done();
       })
       .catch(done);

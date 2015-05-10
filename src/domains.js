@@ -38,6 +38,10 @@ class Domains {
   delete(uuid) {
     return domains.get(this).delete(uuid);
   }
+
+  exists(uuid, query) {
+    return domains.get(this).exists(uuid, query);
+  }
 }
 
 exports = module.exports = Domains;

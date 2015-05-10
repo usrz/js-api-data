@@ -137,7 +137,7 @@ class DbIndex {
     if (! scope) return Promise.resolve(null);
 
     // Connect to the DB if not already
-    if (! query) return inst.client.connect(function(query) {
+    if (! query) return inst.client.read(function(query) {
       return self.find(scope, key, value, query);
     });
 

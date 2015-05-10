@@ -107,7 +107,7 @@ class DbStore {
       if (! uuid) return Promise.resolve(null);
 
       // No query? Connect for "SELECT" (no updates)
-      if (! query) return client.connect(false, function(query) {
+      if (! query) return client.read(function(query) {
         return find(uuid, include_deleted, query);
       });
 
@@ -184,7 +184,7 @@ class DbStore {
       include_deleted = false;
     }
 
-    if (! query) return inst.client.connect(false, function(query) {
+    if (! query) return inst.client.read(function(query) {
       return self.select(uuid, include_deleted, query);
     });
 
@@ -214,7 +214,7 @@ class DbStore {
     parent = UUID.validate(parent);
     if (! parent) return Promise.resolve(null);
 
-    if (! query) return inst.client.connect(true, function(query) {
+    if (! query) return inst.client.write(function(query) {
       return self.insert(parent, attributes, query);
     });
 
@@ -238,7 +238,7 @@ class DbStore {
     var inst = instances.get(this);
     var self = this;
 
-    if (! query) return inst.client.connect(true, function(query) {
+    if (! query) return inst.client.write(function(query) {
       return self.update(uuid, attributes, query);
     });
 
@@ -269,7 +269,7 @@ class DbStore {
     uuid = UUID.validate(uuid);
     if (! uuid) return Promise.resolve(null);
 
-    if (! query) return inst.client.connect(true, function(query) {
+    if (! query) return inst.client.write(function(query) {
       return self.delete(uuid, query);
     });
 

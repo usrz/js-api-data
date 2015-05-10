@@ -30,6 +30,29 @@ class Users {
     });
   }
 
+  get(uuid, include_deleted) {
+    return instances.get(this).users.select(uuid, include_deleted);
+  }
+
+  find(email) {
+    var inst = instances.get(this);
+    var self = this;
+
+    // Reuse connection
+    return inst.client.read(function(query) {
+      return inst.index.find(nil, 'email', email, query)
+        .then(function(uuid) {
+          if (! uuid) return null;
+
+          return inst.users.select(uuid, true, query) // yes, include deleted
+            .then(function(user) {
+              if (user.deleted_at) throw new Error(`Found deleted user "${uuid}"`);
+              return user;
+          })
+      })
+    })
+  }
+
   create(domain, attributes, query) {
     var inst = instances.get(this);
     var self = this;
@@ -51,8 +74,9 @@ class Users {
           .then(function(user) {
             if (! user) throw new Error('No user was inserted');
 
-            // Index email address (use global_scope), username and uid
-            return inst.index.index(nil, user.uuid, { email: user.email }, query)
+            // Index email address
+            var email = user.attributes.email;
+            return inst.index.index(nil, user.uuid, { email: email }, query)
               .then(function(indexed) {
                 // Return the user we created
                 return user;

@@ -52,7 +52,7 @@ describe('Database Index', function() {
           foo: 'b552e0dd-33a0-5b95-8631-9fbe748c9f92',
           baz: 'd3287628-11e6-52c5-ab8c-4a685fffcdce',
         });
-        return client.query('SELECT "scope", "owner", "value" FROM "test_index"');
+        return client.read('SELECT "scope", "owner", "value" FROM "test_index"');
       })
       .then(function(result) {
         expect(result.rows.length).to.equal(6);

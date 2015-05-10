@@ -203,7 +203,7 @@ class KeyManager {
         var encrypted_key = '\\x' + key.encrypt(encryption_key).data.toString('hex');
 
         // Store in the database
-        resolve(client.query(true, INSERT_SQL, encrypted_key)
+        resolve(client.write(INSERT_SQL, encrypted_key)
           .then(function(result) {
             if ((! result) || (! result.rows) || (! result.rows[0])) throw new Error('No results');
             return newKey(result.rows[0]);
@@ -216,7 +216,7 @@ class KeyManager {
      * ---------------------------------------------------------------------- */
 
     this.load = function load(uuid) {
-      return client.query(false, SELECT_SQL, uuid)
+      return client.read(SELECT_SQL, uuid)
         .then(function(result) {
           if ((! result) || (! result.rows) || (! result.rows[0])) return null;
           return newKey(result.rows[0]);
@@ -228,7 +228,7 @@ class KeyManager {
      * ---------------------------------------------------------------------- */
 
     this.delete = function delkey(uuid) {
-      return client.query(true, DELETE_SQL, uuid)
+      return client.write(DELETE_SQL, uuid)
         .then(function(result) {
           if ((! result) || (! result.rows) || (! result.rows[0])) return null;
           return newKey(result.rows[0]);
@@ -240,7 +240,7 @@ class KeyManager {
      * ---------------------------------------------------------------------- */
 
     this.loadAll = function loadAll() {
-      return client.query(false, SELECT_ALL_SQL)
+      return client.read(SELECT_ALL_SQL)
         .then(function(result) {
           if ((! result) || (! result.rows) || (! result.rows[0])) return {};
 

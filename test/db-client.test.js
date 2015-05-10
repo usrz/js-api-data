@@ -28,7 +28,7 @@ describe('Database Client', function() {
     client.on('query', queries.push.bind(queries, 'query'));
     client.on('exception', queries.push.bind(queries, 'exception'));
 
-    client.query("SELECT 1 AS num")
+    client.read("SELECT 1 AS num")
       .then(function(one) {
         return done("This should not connect");
       })
@@ -48,16 +48,17 @@ describe('Database Client', function() {
     var results = [];
     queries.splice(0);
 
-    client.query("SELECT 1 AS num")
+    // Use write to test...
+    client.write("SELECT 1 AS num")
       .then(function(one) {
         results.push(one.rows[0].num);
       })
       .then(function() {
         expect(results).to.eql([1]);
         expect(queries.splice(0)).to.eql([
-          'acquired', client.ro_uri,
+          'acquired', client.rw_uri,
           'query', 'SELECT 1 AS num', [],
-          'released', client.ro_uri,
+          'released', client.rw_uri,
         ]);
         done();
       })
@@ -76,7 +77,7 @@ describe('Database Client', function() {
       var results = [];
       queries.splice(0);
 
-      client.connect(function (query) {
+      client.read(function (query) {
         return query("SELECT 1 AS num")
         .then(function(one) {
           results.push(one.rows[0].num);
@@ -135,7 +136,7 @@ describe('Database Client', function() {
       var results = [];
       queries.splice(0);
 
-      client.connect(function (query) {
+      client.read(function (query) {
         return query("SELECT 1 AS num")
         .then(function(one) {
           results.push(one.rows[0].num);
@@ -192,7 +193,8 @@ describe('Database Client', function() {
       var results = [];
       queries.splice(0);
 
-      client.connect(function (query) {
+      // Use write just to test
+      client.write(function (query) {
         return query("SELECT 1 AS num")
         .then(function(one) {
           results.push(one.rows[0].num);
@@ -221,13 +223,13 @@ describe('Database Client', function() {
       .then(function() {
         expect(results).to.eql([1, 2, 3, 4, 5]);
         expect(queries.splice(0)).to.eql([
-          'acquired', client.ro_uri,
+          'acquired', client.rw_uri,
           'query', 'SELECT 1 AS num', [],
           'query', 'SELECT 2 AS num', [],
           'query', 'SELECT 3 AS num', [],
           'query', 'SELECT 4 AS num', [],
           'query', 'SELECT 5 AS num', [],
-          'released', client.ro_uri,
+          'released', client.rw_uri,
         ]);
 
         done();

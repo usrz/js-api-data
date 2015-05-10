@@ -5,7 +5,7 @@ const KeyManager = require('../src/key-manager');
 const Domains = require('../src/domains');
 const Users = require('../src/users');
 
-describe.only('Users', function() {
+describe('Users', function() {
 
   var file = require('path').resolve(__dirname, '../ddl.sql');
   var ddl = require('fs').readFileSync(file).toString('utf8');
@@ -21,7 +21,6 @@ describe.only('Users', function() {
     var keyManager = new KeyManager(masterKey, testdb.client);
     domains = new Domains(keyManager, testdb.client);
     users = new Users(keyManager, testdb.client);
-
     domains.create({ name: "Test Domain", domain_name: "example.com" })
       .then(function(created) {
         domain = created;
@@ -61,8 +60,30 @@ describe.only('Users', function() {
           email: "test@example.org",
           name: "Test User"
         });
+        user = created;
         done();
       })
       .catch(done);
   })
+
+  it('should get the user by uuid', function(done) {
+    if (! user) return this.skip();
+    users.get(user.uuid)
+      .then(function(gotten) {
+        expect(gotten).to.eql(user);
+        done();
+      })
+      .catch(done);
+  })
+
+  it('should get the user by email address', function(done) {
+    if (! user) return this.skip();
+    users.find(user.attributes.email)
+      .then(function(gotten) {
+        expect(gotten).to.eql(user);
+        done();
+      })
+      .catch(done);
+  })
+
 });

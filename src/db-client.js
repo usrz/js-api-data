@@ -214,4 +214,5 @@ class DbClient extends EventEmitter {
  * EXPORTS                                                                    *
  * ========================================================================== */
 
+DbClient.DbError = DbError;
 exports = module.exports = DbClient;

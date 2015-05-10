@@ -65,7 +65,7 @@ describe('Database Store', function() {
         expect(error).to.be.instanceof(Validator.ValidationError);
         expect(error.message).to.equal('Object failed to validate');
         expect(error.object).to.eql({ invalid_key: true });
-        expect(error.errors).to.eql({
+        expect(error.validation).to.eql({
           invalid_key: [ 'Invalid key must be null or undefined' ]
         });
         done();
@@ -130,7 +130,7 @@ describe('Database Store', function() {
       }, function(error) {
         expect(error).to.be.instanceof(Validator.ValidationError);
         expect(error.message).to.equal('Object failed to validate');
-        expect(error.errors).to.eql({
+        expect(error.validation).to.eql({
           invalid_key: [ 'Invalid key must be null or undefined' ]
         });
 

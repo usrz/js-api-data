@@ -27,7 +27,7 @@ const domain_expr = /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i;
 validate.validators.domain = function(value, options) {
   if (! util.isString(value)) return "must be a string";
   if (domain_expr.exec(value)) return null;
-  return "is not a valid domain";
+  return "is not a valid domain name";
 }
 
 /* ========================================================================== *
@@ -38,8 +38,8 @@ class ValidationError extends Error {
   constructor(object, errors) {
     super('Object failed to validate');
     Error.captureStackTrace(this, ValidationError);
+    this.validation = errors;
     this.object = object;
-    this.errors = errors;
   };
 };
 

@@ -37,7 +37,7 @@ function mergeStack(error, cause) {
  * ========================================================================== */
 
 class DbError extends Error {
-  constructor(message, cause, stack) {
+  constructor(message, cause) {
     super(message);
 
     /* Our properties */

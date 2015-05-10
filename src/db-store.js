@@ -28,10 +28,12 @@ function merge(one, two) {
     }
   })
 
-  // Wipe out all null results
+  // Wipe out all null and empty string results
   Object.keys(result).forEach(function(key) {
-    if (result[key] == null) delete result[key];
-  })
+    var value = result[key];
+    if ((value == null) || (util.isString(value) && value.match(/^\s+$/)))
+      delete result[key];
+  });
 
   // Done!
   return result;
@@ -217,7 +219,7 @@ class DbStore {
     });
 
     return new Promise(function (resolve, reject) {
-      resolve(inst.encrypt(inst.validate(attributes))
+      resolve(inst.encrypt(inst.validate(merge({}, attributes)))
         .then(function(encrypted) {
           return query(inst.INSERT_SQL, parent, encrypted.key, encrypted.data)
             .then(function(result) {

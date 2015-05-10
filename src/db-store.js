@@ -67,13 +67,6 @@ class DbStore {
     // Access to our database (RO/RW)
     if (!(client instanceof DbClient)) throw new Error('Database client not specified or invalid');
 
-    // Our SQL statements
-    const SELECT_SQL = `SELECT * FROM "${tableName}" WHERE "uuid" = $1::uuid`;
-    const PARENT_SQL = `SELECT * FROM "${tableName}" WHERE "parent" = $1::uuid`;
-    const INSERT_SQL = `INSERT INTO "${tableName}" ("parent", "encryption_key", "encrypted_data") VALUES ($1::uuid, $2::uuid, $3::bytea) RETURNING *`;
-    const UPDATE_SQL = `UPDATE "${tableName}" SET "encryption_key" = $2::uuid, "encrypted_data" = $3::bytea WHERE "uuid" = $1::uuid RETURNING *`;
-    const DELETE_SQL = `UPDATE "${tableName}" SET "deleted_at" = NOW() WHERE "uuid" = $1::uuid RETURNING *`;
-
     /* ---------------------------------------------------------------------- *
      * Utility methods to decrypt (nice errors), find (for select, exists)    *
      * ---------------------------------------------------------------------- */
@@ -95,7 +88,7 @@ class DbStore {
         });
     }
 
-     // Find a DB row, used by select and exists below
+     // Find a DB row, used by "select(...)" and "exists(...)" below
     var self = this;
     function find(uuid, include_deleted, query) {
 
@@ -114,7 +107,10 @@ class DbStore {
       return query(sql, uuid);
     }
 
-    // Remember our instance variables
+    /* ---------------------------------------------------------------------- *
+     * Remember our instance variables                                        *
+     * ---------------------------------------------------------------------- */
+
     instances.set(this, {
       SELECT_SQL: `SELECT * FROM "${tableName}" WHERE "uuid" = $1::uuid`,
       PARENT_SQL: `SELECT * FROM "${tableName}" WHERE "parent" = $1::uuid`,

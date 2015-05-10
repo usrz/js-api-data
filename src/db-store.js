@@ -138,10 +138,10 @@ class DbStore {
    * Check whether the specified uuid is valid (quick, no decryption)       *
    * ---------------------------------------------------------------------- */
 
-  exists(uuid, include_deleted, query) {
-    return instances.get(this).find(uuid, include_deleted, query)
+  exists(uuid, query) {
+    return instances.get(this).find(uuid, false, query)
       .then(function(result) {
-        return (result && result.rows && result.rows[0]);
+        return (result && result.rows && result.rows[0] && true) || false;
       });
   }
 

@@ -4,7 +4,7 @@ const expect = require('chai').expect;
 const KeyManager = require('../src/key-manager');
 const DbStore = require('../src/db-store');
 
-describe('Database Store', function() {
+describe.only('Database Store', function() {
 
   const parent = '00000000-0000-0000-0000-000000000000';
   var file1 = require('path').resolve(__dirname, '../ddl.sql');
@@ -27,10 +27,14 @@ describe('Database Store', function() {
   })
   after(testdb.after);
 
-  it('should return null fetching an invalid uuid', function(done) {
-    store.select("mario")
+  it('should not fetch an invalid uuid', function(done) {
+    store.select('mario')
       .then(function(value) {
         expect(value).to.be.null;
+        return store.exists('mario');
+      })
+      .then(function(exists) {
+        expect(exists).to.be.false;
         done();
       })
       .catch(done);
@@ -40,6 +44,10 @@ describe('Database Store', function() {
     store.select('78adc7c5-e021-4507-81c3-51ee579c4bb4')
       .then(function(value) {
         expect(value).to.be.null;
+        return store.exists('78adc7c5-e021-4507-81c3-51ee579c4bb4');
+      })
+      .then(function(exists) {
+        expect(exists).to.be.false;
         done();
       })
       .catch(done);
@@ -67,6 +75,10 @@ describe('Database Store', function() {
     store.select(value.uuid)
       .then(function(found) {
         expect(found).to.eql(value);
+        return store.exists(value.uuid);
+      })
+      .then(function(exists) {
+        expect(exists).to.be.true;
         done();
       })
       .catch(done);
@@ -114,6 +126,10 @@ describe('Database Store', function() {
     store.select(value.uuid)
       .then(function(found) {
         expect(found).to.be.null;
+        return store.exists(value.uuid);
+      })
+      .then(function(exists) {
+        expect(exists).to.be.false;
         done();
       })
       .catch(done);

@@ -50,7 +50,7 @@ describe('Domains', function() {
   });
 
   it('should create a valid domain', function(done) {
-    domains.create({ name: "Test Domain", domain_name: "example.com" })
+    domains.create({ name: " Test \n Domain \t ", domain_name: "example.com" })
       .then(function(created) {
         // Same UUID (parent of self!)
         expect(created.uuid).to.equal(created.parent);

@@ -9,6 +9,7 @@ const domains = new WeakMap();
 var validator = new Validator({
   name: {
     presence: true,
+    normalize: true,
     type: 'string'
   },
   domain_name: {

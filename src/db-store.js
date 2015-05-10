@@ -1,6 +1,7 @@
 'use strict';
 
 const KeyManager = require('./key-manager');
+const Validator = require('./validator');
 const DbClient = require('./db-client');
 const UUID = require('./uuid');
 
@@ -57,7 +58,7 @@ class DbObject {
 var instances = new WeakMap();
 
 class DbStore {
-  constructor(tableName, keyManager, client) {
+  constructor(tableName, keyManager, client, validator) {
 
     // Validate table name and key manager
     if (!util.isString(tableName)) throw new Error('Table name must be a string');
@@ -66,6 +67,13 @@ class DbStore {
 
     // Access to our database (RO/RW)
     if (!(client instanceof DbClient)) throw new Error('Database client not specified or invalid');
+
+    // Check validator
+    var validate;
+    if (! validator) validate = function(object) { return object };
+    else if (validator instanceof Validator) validate = validator.validate.bind(validator);
+    else if (typeof(validator) === 'function') validate = validator;
+    else throw new Error('Validator must be a function or Validator instance');
 
     /* ---------------------------------------------------------------------- *
      * Utility methods to decrypt (nice errors), find (for select, exists)    *
@@ -120,6 +128,7 @@ class DbStore {
       encrypt: keyManager.encrypt.bind(keyManager),
       decrypt: decrypt.bind(this),
       find: find.bind(this),
+      validate: validate,
       client: client
     })
   }
@@ -207,14 +216,16 @@ class DbStore {
       return self.insert(parent, attributes, query);
     });
 
-    return inst.encrypt(attributes)
-      .then(function(encrypted) {
-        return query(inst.INSERT_SQL, parent, encrypted.key, encrypted.data)
-          .then(function(result) {
-            if ((! result) || (! result.rows) || (! result.rows[0])) return null;
-            return inst.decrypt(result.rows[0]); // triple-check decryption
-          });
-      });
+    return new Promise(function (resolve, reject) {
+      resolve(inst.encrypt(inst.validate(attributes))
+        .then(function(encrypted) {
+          return query(inst.INSERT_SQL, parent, encrypted.key, encrypted.data)
+            .then(function(result) {
+              if ((! result) || (! result.rows) || (! result.rows[0])) return null;
+              return inst.decrypt(result.rows[0]); // triple-check decryption
+            });
+        }));
+    });
   }
 
   /* ------------------------------------------------------------------------ *
@@ -231,10 +242,10 @@ class DbStore {
 
     return self.select(uuid, query)
       .then(function(result) {
-        if (! result) return null;;
+        if (! result) return null;
 
-        // Merge and encrypt...
-        return inst.encrypt(merge(result.attributes, attributes))
+        // Merge, validate then encrypt...
+        return inst.encrypt(inst.validate(merge(result.attributes, attributes)))
           .then(function(encrypted) {
             return query(inst.UPDATE_SQL, uuid, encrypted.key, encrypted.data)
               .then(function(result) {

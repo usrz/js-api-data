@@ -28,11 +28,10 @@ validate.validators.type = function(value, options) {
 // Custom "domain" validator
 const domain_expr = /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i;
 validate.validators.domain = function(value, options) {
-  if (value) {
-    if (! util.isString(value)) return "must be a string";
-    if (domain_expr.exec(value)) return null;
-    return "is not a valid domain name";
-  }
+  if (util.isNullOrUndefined(value)) return null;
+  if (! util.isString(value)) return "must be a string";
+  if (domain_expr.exec(value)) return null;
+  return "is not a valid domain name";
 }
 
 // Custom "normalize" validator

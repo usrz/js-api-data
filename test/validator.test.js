@@ -39,6 +39,15 @@ describe('Validator', function() {
       expect(error.validation).to.eql({ field: [ 'Field is not a valid domain name' ] });
       expect(error.object).to.eql({field: 'phony'});
     }
+
+    try {
+      validator.validate({field: 123});
+      throw new Error('Should not validate');
+    } catch (error) {
+      expect(error.message).to.equal('Object failed to validate');
+      expect(error.validation).to.eql({ field: [ 'Field must be a string' ] });
+      expect(error.object).to.eql({field: 123});
+    }
   })
 
   it('should normalize a string', function() {

@@ -34,12 +34,13 @@ describe('Domains', function() {
       .catch(done);
   });
 
-  it('should not create with an invalid domain name', function(done) {
-    domains.create({ name: "Test Domain", domain_name: "phony" })
+  it('should not create with a invalid properties', function(done) {
+    domains.create({ name: 123, domain_name: "phony" })
       .then(function(domain) {
         throw new Error('It should not have been created');
       }, function(error) {
         expect(error.validation).to.eql({
+          name: [ "Name must be a string" ],
           domain_name: [ "Domain name is not a valid domain name" ]
         });
         done();

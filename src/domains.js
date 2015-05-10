@@ -14,8 +14,7 @@ var validator = new Validator({
   },
   domain_name: {
     presence: true,
-    domain: true,
-    type: 'string'
+    domain: true
   }
 })
 

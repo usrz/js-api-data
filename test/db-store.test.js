@@ -4,7 +4,7 @@ const expect = require('chai').expect;
 const KeyManager = require('../src/key-manager');
 const DbStore = require('../src/db-store');
 
-describe.only('Database Store', function() {
+describe('Database Store', function() {
 
   const parent = '00000000-0000-0000-0000-000000000000';
   var file1 = require('path').resolve(__dirname, '../ddl.sql');

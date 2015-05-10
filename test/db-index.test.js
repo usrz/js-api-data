@@ -3,7 +3,7 @@
 const expect = require('chai').expect;
 const DbIndex = require('../src/db-index');
 
-describe.only('Database Index', function() {
+describe('Database Index', function() {
 
   const scope1 = '125036e8-d182-41a4-ad65-2a06180e7fe0';
   const scope2 = '4656dada-b495-43e8-bdce-27f3aa2096e8';
@@ -14,6 +14,7 @@ describe.only('Database Index', function() {
   var testdb = require('./testdb')(ddl);
   var client = null;
   var index = null;
+  var ok = false;
 
   before(testdb.before);
   before(function() {
@@ -26,25 +27,31 @@ describe.only('Database Index', function() {
     var attributes = { foo: "bar", baz: 123, gonzo: null};
     index.index(scope1, owner1, attributes)
       .then(function(result) {
-        expect(result.length).to.equal(2);
-        expect(result).to.include('b12a133a-65ea-5e79-a846-a540b4cc2d89');
-        expect(result).to.include('03b1fb8c-bd70-59bf-b79e-e41a6ffed9c0');
+        expect(result).to.eql({
+          foo: 'b12a133a-65ea-5e79-a846-a540b4cc2d89',
+          baz: '03b1fb8c-bd70-59bf-b79e-e41a6ffed9c0',
+        });
         return index.index(scope2, owner1, attributes); // different scope
       })
       .then(function(result) {
-        expect(result.length).to.equal(2);
-        expect(result).to.include('93a8d45e-1795-598c-a7a0-fa7016a86190');
-        expect(result).to.include('ca323926-cfc2-5149-afbc-f542c7aa393d');
+        expect(result).to.eql({
+          foo: '93a8d45e-1795-598c-a7a0-fa7016a86190',
+          baz: 'ca323926-cfc2-5149-afbc-f542c7aa393d',
+        });
         return index.index(scope1, owner2, attributes); // different owner
       })
       .catch(function(error) {
-        expect(error.cause.message).to.match(/unique constraint "test_index_pkey"/);
+        expect(error.message).to.match(new RegExp(`^Duplicate values indexing attributes for "${owner2}" in scope "${scope1}"`));
+        expect(error.scope).to.equal(scope1);
+        expect(error.owner).to.equal(owner2);
+        expect(error.duplicates).to.eql({ foo: owner1, baz: owner1 });
         return(index.index(scope1, owner2, { foo: "baz", baz: 321 })); // different values
       })
       .then(function(result) {
-        expect(result.length).to.equal(2);
-        expect(result).to.include('b552e0dd-33a0-5b95-8631-9fbe748c9f92');
-        expect(result).to.include('d3287628-11e6-52c5-ab8c-4a685fffcdce');
+        expect(result).to.eql({
+          foo: 'b552e0dd-33a0-5b95-8631-9fbe748c9f92',
+          baz: 'd3287628-11e6-52c5-ab8c-4a685fffcdce',
+        });
         return client.query('SELECT "scope", "owner", "value" FROM "test_index"');
       })
       .then(function(result) {
@@ -57,12 +64,15 @@ describe.only('Database Index', function() {
           { scope: scope2, owner: owner1, value: '93a8d45e-1795-598c-a7a0-fa7016a86190' }, // foo:bar
           { scope: scope2, owner: owner1, value: 'ca323926-cfc2-5149-afbc-f542c7aa393d' }, // baz:123
         ]);
+        ok = true;
         done();
       })
       .catch(done);
   });
 
   it('should find the correct values', function(done) {
+    if (! ok) return this.skip();
+
     index.find(scope1, "foo", "bar" )
       .then(function(result) {
         expect(result).to.equal(owner1);

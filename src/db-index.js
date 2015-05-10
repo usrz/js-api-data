@@ -4,6 +4,34 @@ const DbClient = require('./db-client');
 const UUID = require('./uuid');
 const util = require('util');
 
+/* ========================================================================== *
+ * INDEX ERROR, WHEN DUPLICATES ARE FOUND                                     *
+ * ========================================================================== */
+
+class IndexError extends Error {
+  constructor(scope, owner, duplicates) {
+    var message = `Duplicate values indexing attributes for "${owner}" in scope "${scope}"`;
+    for (var key in duplicates) message += `\n  "${key}" owned by "${duplicates[key]}"`;
+    super(message);
+
+    /* Remember our properties */
+    this.duplicates = duplicates;
+    this.message = message;
+    this.scope = scope;
+    this.owner = owner;
+
+    /* Capture stack */
+    Error.captureStackTrace(this, IndexError);
+  };
+};
+
+IndexError.prototype.message = 'Index Error';
+IndexError.prototype.name = 'IndexError';
+
+/* ========================================================================== *
+ * DB INDEX CLASS                                                             *
+ * ========================================================================== */
+
 var instances = new WeakMap();
 
 class DbIndex {
@@ -40,29 +68,59 @@ class DbIndex {
     return query(inst.DELETE_SQL, scope, owner)
       .then(function() {
         var sql = [];
-        var uuids = [];
-        var parameters = [];
+        var params = [];
+        var values = {};
 
         // For each attribute, calculate its V5 UUID
         Object.keys(attributes).forEach(function (key) {
           var value = attributes[key];
           if (value != null) { // Null? Don't index!
-            var value = UUID.v5(scope, key + ":" + attributes[key]);
-            var scope_pos = parameters.push(scope);
-            var owner_pos = parameters.push(owner);
-            var value_pos = parameters.push(value);
+            var value = values[key] = UUID.v5(scope, key + ":" + attributes[key]);
+            var scope_pos = params.push(scope);
+            var owner_pos = params.push(owner);
+            var value_pos = params.push(value);
             sql.push(`($${scope_pos}::uuid, $${owner_pos}::uuid, $${value_pos}::uuid)`);
-            uuids.push(value);
           }
         });
 
         // No parameters? Do nothing...
-        if (uuids.length == 0) return uuids;
+        if (params.length == 0) return {};
 
-        // Insert our indexable values...
-        return query(inst.INSERT_SQL + sql.join(', '), parameters)
+        // Check for existing indexed values
+        var keys = Object.keys(values);
+        var promises = [];
+
+        // Shortcut w/o using "find", as we already have V5 UUIDs
+        keys.forEach(function(key) {
+          promises.push(query(inst.SELECT_SQL, scope, values[key])
+            .then(function(result) {
+              if ((! result) || (! result.rows) || (! result.rows[0])) return null;
+              return result.rows[0].owner;
+            }));
+        })
+
+        // Wait for all promises to resolve
+        return Promise.all(promises)
+          .then(function(results) {
+
+            // Check for duplicates
+            var duplicates = {};
+            var duplicates_found = false;
+            for (var i = 0; i < promises.length; i++) {
+              if (results[i] == null) continue;
+              duplicates[keys[i]] = results[i];
+              duplicates_found = true;
+            }
+
+            // Duplicates found? Foobar the entire thing!
+            if (duplicates_found) throw new IndexError(scope, owner, duplicates);
+
+            // Coast is clear, just insert...
+            return query(inst.INSERT_SQL + sql.join(', '), params)
+          })
           .then(function() {
-            return uuids;
+            // Return map of { attribute --> v5 uuid }
+            return values;
           })
       })
   }

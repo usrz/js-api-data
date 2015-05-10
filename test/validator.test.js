@@ -10,6 +10,7 @@ describe('Validator', function() {
     var constr = {field: {type: 'string'}};
     var validator = new Validator(constr);
 
+    expect(validator.validate({})).to.eql({});
     expect(validator.validate(object)).to.eql(object);
 
     try {
@@ -19,15 +20,6 @@ describe('Validator', function() {
       expect(error.message).to.equal('Object failed to validate');
       expect(error.validation).to.eql({ field: [ 'Field must be a string' ] });
       expect(error.object).to.eql({field: 123});
-    }
-
-    try {
-      validator.validate({});
-      throw new Error('Should not validate');
-    } catch (error) {
-      expect(error.message).to.equal('Object failed to validate');
-      expect(error.validation).to.eql({ field: [ 'Field must be a string' ] });
-      expect(error.object).to.eql({});
     }
   })
 

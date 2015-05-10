@@ -6,6 +6,9 @@ validate.Promise = Promise;
 
 // Custom "type" validator using Node's "util.isXXX(...)"
 validate.validators.type = function(value, options) {
+  // Unless we are doing a strict "null" check...
+  if ((options !== 'null') && util.isNullOrUndefined(value)) return;
+
   if (options === 'array')     return (util.isArray(value)           ? null : "must be an array");
   if (options === 'boolean')   return (util.isBoolean(value)         ? null : "must be a boolean");
   if (options === 'buffer')    return (util.isBuffer(value)          ? null : "must be a Buffer");

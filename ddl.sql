@@ -121,6 +121,8 @@ CREATE TABLE "domains" (
 ALTER TABLE "domains"
   ADD CONSTRAINT "domains_pkey"
       PRIMARY KEY ("uuid"),
+  ADD CONSTRAINT "domains_parent_check"
+      CHECK (parent = uuid),
   ADD CONSTRAINT "domains_domains_uuid_fkey"
       FOREIGN KEY ("parent") REFERENCES "domains" ("uuid"),
   ADD CONSTRAINT "domains_encryption_keys_uuid_fkey"

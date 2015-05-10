@@ -3,7 +3,7 @@
 const DbStore = require('./db-store');
 const Validator = require('./validator');
 
-const parent = '00000000-0000-0000-0000-000000000000';
+const nil = require('./uuid').NULL.toString();
 const domains = new WeakMap();
 
 var validator = new Validator({
@@ -28,7 +28,7 @@ class Domains {
   }
 
   create(attributes, query) {
-    return domains.get(this).insert(parent, attributes, query);
+    return domains.get(this).insert(nil, attributes, query);
   }
 
   modify(uuid, attributes) {

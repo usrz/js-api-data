@@ -187,3 +187,23 @@ CREATE RULE "users_delete" AS ON DELETE TO "users" DO INSTEAD
    WHERE uuid=OLD.uuid
      AND deleted_at IS NULL;
 
+-- * ========================================================================= *
+
+CREATE TABLE "users_index" (
+  "scope"      UUID                     NOT NULL,
+  "owner"      UUID                     NOT NULL,
+  "value"      UUID                     NOT NULL,
+  "indexed_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE "users_index"
+  ADD CONSTRAINT "users_index_pkey"
+      PRIMARY KEY ("value"),
+  ADD CONSTRAINT "users_index_scope_check"
+      CHECK (scope = uuid_nil()),
+  ADD CONSTRAINT "users_index_users_fkey"
+      FOREIGN KEY ("value") REFERENCES "users" ("uuid");
+
+-- Protect against updates
+CREATE TRIGGER "users_index_update" BEFORE UPDATE ON "users_index"
+  FOR EACH ROW EXECUTE PROCEDURE "fn_prevent_trigger" ();

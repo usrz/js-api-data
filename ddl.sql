@@ -202,7 +202,7 @@ ALTER TABLE "users_index"
   ADD CONSTRAINT "users_index_scope_check"
       CHECK (scope = uuid_nil()),
   ADD CONSTRAINT "users_index_users_fkey"
-      FOREIGN KEY ("value") REFERENCES "users" ("uuid");
+      FOREIGN KEY ("owner") REFERENCES "users" ("uuid");
 
 -- Protect against updates
 CREATE TRIGGER "users_index_update" BEFORE UPDATE ON "users_index"

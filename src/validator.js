@@ -5,7 +5,7 @@ const validate = require("validate.js");
 validate.Promise = Promise;
 
 // Custom "type" validator using Node's "util.isXXX(...)"
-validate.validators.type = function(value, options, key, attributes) {
+validate.validators.type = function(value, options) {
   if (options === 'array')     return (util.isArray(value)           ? null : "must be an array");
   if (options === 'boolean')   return (util.isBoolean(value)         ? null : "must be a boolean");
   if (options === 'buffer')    return (util.isBuffer(value)          ? null : "must be a Buffer");
@@ -21,6 +21,14 @@ validate.validators.type = function(value, options, key, attributes) {
   if (options === 'symbol')    return (util.isSymbol(value)          ? null : "must be a symbol");
   return `has an unknown validation type "${options}"`;
 };
+
+// Custom "domain" validator
+const domain_expr = /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i;
+validate.validators.domain = function(value, options) {
+  if (! util.isString(value)) return "must be a string";
+  if (domain_expr.exec(value)) return null;
+  return "is not a valid domain";
+}
 
 /* ========================================================================== *
  * VALIDATION ERROR CLASS                                                     *

@@ -163,4 +163,5 @@ class DbIndex {
  * EXPORTS                                                                    *
  * ========================================================================== */
 
+DbIndex.IndexError = IndexError;
 exports = module.exports = DbIndex;

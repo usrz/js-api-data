@@ -27,8 +27,8 @@ class Domains {
     return domains.get(this).select(uuid, include_deleted);
   }
 
-  create(attributes) {
-    return domains.get(this).insert(parent, attributes);
+  create(attributes, query) {
+    return domains.get(this).insert(parent, attributes, query);
   }
 
   modify(uuid, attributes) {

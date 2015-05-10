@@ -36,10 +36,9 @@ BEGIN
   END IF;
 
   -- Raise exception if attempting to modify an existing "deleted_at"
-  IF (OLD.deleted_at IS NOT NULL) AND
-     ((OLD.deleted_at != NEW.deleted_at) OR (NEW.deleted_at IS NULL ))
+  IF (OLD.deleted_at IS NOT NULL)
   THEN
-    RAISE EXCEPTION 'Attempting to update "deleted_at" of encryption key "%"', OLD.uuid;
+    RAISE EXCEPTION 'Attempting to update deleted encryption key "%"', OLD.uuid;
   END IF;
 
   -- All good!
@@ -77,7 +76,7 @@ CREATE RULE "encryption_keys_delete" AS ON DELETE TO "encryption_keys" DO INSTEA
 
 CREATE FUNCTION "fn_update_trigger" () RETURNS TRIGGER AS $$
 BEGIN
-  -- Raise exception if attempting to update anything
+  -- Raise exception if attempting to update
   IF (OLD.uuid       != NEW.uuid)   OR
      (OLD.parent     != NEW.parent) OR
      (OLD.created_at != NEW.created_at)
@@ -85,9 +84,23 @@ BEGIN
     RAISE EXCEPTION 'Attempting to update "%" values for key "%"', TG_TABLE_NAME, OLD.uuid;
   END IF;
 
+  -- Raise exception if attempting to update something deleted
+  IF (OLD.deleted_at IS NOT NULL)
+  THEN
+    RAISE EXCEPTION 'Attempting to update "%" values for deleted key "%"', TG_TABLE_NAME, OLD.uuid;
+  END IF;
+
   -- Enforce "updated_at" to be now()
   NEW.updated_at = now();
   RETURN NEW;
+END;
+$$ LANGUAGE 'plpgsql';
+
+-- A simple trigger preventing whatever it's associated to...
+
+CREATE FUNCTION "fn_prevent_trigger" () RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION 'Preventing "%" on "%"', TG_OP, TG_TABLE_NAME;
 END;
 $$ LANGUAGE 'plpgsql';
 

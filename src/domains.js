@@ -23,20 +23,20 @@ class Domains {
     domains.set(this, new DbStore("domains", keyManager, client, validator));
   }
 
-  get(uuid, include_deleted) {
-    return domains.get(this).select(uuid, include_deleted);
+  get(uuid, include_deleted, query) {
+    return domains.get(this).select(uuid, include_deleted, query);
   }
 
   create(attributes, query) {
     return domains.get(this).insert(nil, attributes, query);
   }
 
-  modify(uuid, attributes) {
-    return domains.get(this).update(uuid, attributes);
+  modify(uuid, attributes, query) {
+    return domains.get(this).update(uuid, attributes, query);
   }
 
-  delete(uuid) {
-    return domains.get(this).delete(uuid);
+  delete(uuid, query) {
+    return domains.get(this).delete(uuid, query);
   }
 
   exists(uuid, query) {

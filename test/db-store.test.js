@@ -15,6 +15,7 @@ describe('Database Store', function() {
   var testdb = require('./testdb')(ddl1 + ddl2);
   var store = null;
   var value = null;
+  var vattr = null;
 
   var attributes1 = {hello: "world", foobar: 123, object: {a: 1, b: "B"}};
   var attributes2 = {foobar: null, gonzo: 456, object: {b: null, c: 999}};
@@ -35,10 +36,6 @@ describe('Database Store', function() {
     store.select('mario')
       .then(function(value) {
         expect(value).to.be.null;
-        return store.exists('mario');
-      })
-      .then(function(exists) {
-        expect(exists).to.be.false;
         done();
       })
       .catch(done);
@@ -48,10 +45,6 @@ describe('Database Store', function() {
     store.select('78adc7c5-e021-4507-81c3-51ee579c4bb4')
       .then(function(value) {
         expect(value).to.be.null;
-        return store.exists('78adc7c5-e021-4507-81c3-51ee579c4bb4');
-      })
-      .then(function(exists) {
-        expect(exists).to.be.false;
         done();
       })
       .catch(done);
@@ -83,9 +76,13 @@ describe('Database Store', function() {
         expect(created.updated_at).to.be.instanceof(Date);
         expect(created.created_at.getTime()).to.equal(created.updated_at.getTime());
         expect(created.deleted_at).to.be.null;
-        expect(created.attributes).to.eql(attributes1);
-        value = created;
-        done();
+        return created.attributes()
+          .then(function(attributes) {
+            expect(attributes).to.eql(attributes1);
+            value = created;
+            vattr = attributes;
+            done();
+          })
       })
       .catch(done);
   })
@@ -95,17 +92,33 @@ describe('Database Store', function() {
     store.select(value.uuid)
       .then(function(found) {
         expect(found).to.eql(value);
-        return store.exists(value.uuid);
+        return found.attributes()
+          .then(function(attributes) {
+            expect(attributes).to.eql(vattr);
+            done();
+          })
       })
-      .then(function(exists) {
-        expect(exists).to.be.true;
-        done();
+      .catch(done);
+  })
+
+  it('should find our saved value by its parent', function(done) {
+    if (! value) return this.skip();
+    store.parent(parent)
+      .then(function(children) {
+        expect(children).to.eql([value]);
+        return children[0].attributes()
+          .then(function(attributes) {
+            expect(attributes).to.eql(vattr);
+            done();
+          })
       })
       .catch(done);
   })
 
   it('should update our saved value', function(done) {
     if (! value) return this.skip();
+
+    var temp = null;
     store.update(value.uuid, attributes2)
       .then(function(modified) {
         expect(modified).to.exist;
@@ -115,9 +128,14 @@ describe('Database Store', function() {
         expect(modified.created_at.getTime()).to.equal(value.created_at.getTime());
         expect(modified.created_at.getTime()).not.to.equal(modified.updated_at.getTime());
         expect(modified.deleted_at).to.be.null;
-        expect(modified.attributes).to.eql(attributes3);
-        value = modified;
-        done();
+
+        return modified.attributes()
+          .then(function(attributes) {
+            expect(attributes).to.eql(attributes3);
+            value = modified;
+            vattr = attributes;
+            done();
+          })
       })
       .catch(done);
   })
@@ -145,7 +163,11 @@ describe('Database Store', function() {
       .then(function(found) {
         // Triple check that invalid key was not saved
         expect(found).to.eql(value);
-        done();
+        return found.attributes()
+          .then(function(attributes) {
+            expect(attributes).to.eql(vattr);
+            done();
+          })
       })
       .catch(done);
   })
@@ -163,9 +185,13 @@ describe('Database Store', function() {
         expect(deleted.created_at.getTime()).to.equal(value.created_at.getTime());
         expect(deleted.updated_at.getTime()).to.equal(deleted.deleted_at.getTime());
         expect(deleted.created_at.getTime()).not.to.equal(deleted.updated_at.getTime());
-        expect(deleted.attributes).to.eql(attributes3);
-        value = deleted;
-        done();
+        return deleted.attributes()
+          .then(function(attributes) {
+            expect(attributes).to.eql(attributes3);
+            value = deleted;
+            vattr = attributes;
+            done();
+          })
       })
       .catch(done);
   })
@@ -175,10 +201,6 @@ describe('Database Store', function() {
     store.select(value.uuid)
       .then(function(found) {
         expect(found).to.be.null;
-        return store.exists(value.uuid);
-      })
-      .then(function(exists) {
-        expect(exists).to.be.false;
         done();
       })
       .catch(done);
@@ -200,7 +222,11 @@ describe('Database Store', function() {
     store.select(value.uuid, true)
       .then(function(found) {
         expect(found).to.eql(value);
-        done();
+        return found.attributes()
+          .then(function(attributes) {
+            expect(attributes).to.eql(vattr);
+            done();
+          })
       })
       .catch(done);
   })

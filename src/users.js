@@ -73,11 +73,11 @@ class Users {
     });
 
     // Start checking if we have the domain
-    return inst.domains.exists(domain, query)
+    return inst.domains.get(domain, query)
 
       // Do we have the correct domain?
-      .then(function(domain_exists) {
-        if (! domain_exists) return null;
+      .then(function(domain_object) {
+        if (! domain_object) return null;
 
         // Should we convert a password to credentials?
         if (attributes.password) {
@@ -90,13 +90,14 @@ class Users {
           .then(function(user) {
             if (! user) throw new Error('No user was created');
 
-            // Index email address
-            var email = user.attributes.email;
-            return inst.index.index(nil, user.uuid, { email: email }, query)
+            // Index email address and return the user we created
+            return user.attributes()
+              .then(function(attributes) {
+                return inst.index.index(nil, user.uuid, { email: attributes.email }, query)
+              })
               .then(function(indexed) {
-                // Return the user we created
                 return user;
-              });
+              })
           });
       });
   }
@@ -118,11 +119,12 @@ class Users {
         .then(function(user) {
           if (! user) throw new Error('No user was modified');
 
-          // Re-index email address
-          var email = user.attributes.email;
-          return inst.index.index(nil, user.uuid, { email: email }, query)
+          // Re-index email address and return the updated user
+          return user.attributes()
+            .then(function(attributes) {
+              return inst.index.index(nil, user.uuid, { email: attributes.email }, query)
+            })
             .then(function(indexed) {
-              // Return the user we created
               return user;
             });
         })

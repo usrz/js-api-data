@@ -11,6 +11,7 @@ describe('Domains', function() {
   var testdb = require('./testdb')(ddl);
   var domains = null;
   var domain = null;
+  var attr = null;
 
   before(testdb.before);
   before(function() {
@@ -55,12 +56,16 @@ describe('Domains', function() {
         .then(function(created) {
           // Same UUID (parent of self!)
           expect(created.uuid).to.equal(created.parent);
-          expect(created.attributes).to.eql({
-            name: "Test Domain",
-            domain_name: "example.com"
-          });
-          domain = created;
-          done();
+          return created.attributes()
+            .then(function(attributes) {
+              expect(attributes).to.eql({
+                name: "Test Domain",
+                domain_name: "example.com"
+              });
+              domain = created;
+              attr = attributes;
+              done();
+          })
         })
         .catch(done);
     });
@@ -69,20 +74,15 @@ describe('Domains', function() {
   describe('Checks', function() {
     before(function() { if (! domain) this.skip() });
 
-    it('should make sure that the domain exists', function(done) {
-      domains.exists(domain.uuid)
-        .then(function(exists) {
-          expect(exists).to.be.true;
-          done();
-        })
-        .catch(done);
-    });
-
     it('should retrieve the created domain', function(done) {
       domains.get(domain.uuid)
         .then(function(gotten) {
           expect(gotten).to.eql(domain);
-          done();
+          return gotten.attributes()
+            .then(function(attributes) {
+              expect(attributes).to.eql(attr);
+              done();
+            })
         })
         .catch(done);
     });
@@ -101,7 +101,11 @@ describe('Domains', function() {
         })
         .then(function(gotten) {
           expect(gotten).to.eql(domain);
-          done();
+          return gotten.attributes()
+            .then(function(attributes) {
+              expect(attributes).to.eql(attr);
+              done();
+            })
         })
         .catch(done);
     })
@@ -110,10 +114,15 @@ describe('Domains', function() {
       domains.delete(domain.uuid)
         .then(function(deleted) {
           expect(deleted.deleted_at).to.be.instanceof(Date);
-          domain = deleted;
+          return deleted.attributes()
+            .then(function(attributes) {
+              expect(attributes).to.eql(attr);
+              domain = deleted;
+              attr = attributes;
 
-          // Triple check
-          return domains.get(domain.uuid);
+              // Triple check
+              return domains.get(domain.uuid);
+            })
         })
         .then(function(gotten) {
           expect(gotten).to.be.null;
@@ -123,13 +132,11 @@ describe('Domains', function() {
         })
         .then(function(gotten) {
           expect(gotten).to.eql(domain);
-
-          // Must not "exist"
-          return domains.exists(domain.uuid);
-        })
-        .then(function(exists) {
-          expect(exists).to.be.false;
-          done();
+          return gotten.attributes()
+            .then(function(attributes) {
+              expect(attributes).to.eql(attr);
+              done();
+            })
         })
         .catch(done);
     });

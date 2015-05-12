@@ -105,8 +105,9 @@ describe('Database Store', function() {
     if (! value) return this.skip();
     store.parent(parent)
       .then(function(children) {
-        expect(children).to.eql([value]);
-        return children[0].attributes()
+        expect(children).to.be.an('object');
+        expect(children[value.uuid]).to.eql(value);
+        return children[value.uuid].attributes()
           .then(function(attributes) {
             expect(attributes).to.eql(vattr);
             done();

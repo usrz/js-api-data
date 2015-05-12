@@ -181,9 +181,10 @@ class DbStore {
     return query(sql, uuid)
       .then(function(result) {
         if ((! result) || (! result.rows) || (! result.rows[0])) return [];
-        var objects = [];
+        var objects = {};
         for (var i in result.rows) {
-          objects.push(new DbObject(result.rows[i], inst.keyManager));
+          var object = new DbObject(result.rows[i], inst.keyManager);
+          objects[object.uuid] = object;
         }
         return objects;
       });

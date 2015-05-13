@@ -65,7 +65,7 @@ class DbIndex {
     });
 
     // Delete all previously indexed values
-    return query(inst.DELETE_SQL, scope, owner)
+    return this.clear(scope, owner, query)
       .then(function() {
         var sql = [];
         var params = [];
@@ -157,6 +157,23 @@ class DbIndex {
           }));
     });
   }
+
+  /* ------------------------------------------------------------------------ *
+   * Clear (un/de-index) any value associated with the given scope and owner  *
+   * ------------------------------------------------------------------------ */
+  clear(scope, owner, query) {
+    var inst = instances.get(this);
+    var self = this;
+
+    // Connect to the DB if not already
+    if (! query) return inst.client.write(function(query) {
+      return self.clear(scope, owner, query);
+    });
+
+    return query(inst.DELETE_SQL, scope, owner)
+      .then(function() {});
+  }
+
 }
 
 /* ========================================================================== *

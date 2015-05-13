@@ -205,8 +205,63 @@ describe('Users', function() {
     })
 
     it('should not allow modifications to an existing email address', function(done) {
-      done();
+      users.modify(user2.uuid, {email: "test1@example.org"})
+        .then(function(modified) {
+          throw new Error('Should have not been modified');
+        }, function(error) {
+          expect(error.owner).to.equal(user2.uuid);
+          expect(error.duplicates.email).to.equal(user.uuid);
+          done();
+        })
+        .catch(done);
     });
+
+    it('should return all users when looking for domain users', function(done) {
+      users.domain(domain.uuid)
+        .then(function(list) {
+          expect(list[user.uuid]).to.exist;
+          expect(list[user2.uuid]).to.exist;
+          done();
+        })
+        .catch(done);
+    })
+
+    it('should reassign the email from a deleted user', function(done) {
+      users.delete(user.uuid)
+        .then(function(deleted) {
+          expect(deleted.uuid).to.equal(user.uuid);
+          expect(deleted.deleted_at).to.be.instanceof(Date);
+          return users.modify(user2.uuid, {email: "test1@example.org"})
+        })
+        .then(function(modified) {
+          expect(modified.uuid).to.equal(user2.uuid);
+          return modified.attributes()
+            .then(function(attributes) {
+              expect(attributes.email).to.equal('test1@example.org');
+              user2 = modified;
+              attr2 = attributes;
+
+              // Now get all the users for the domain...
+              return users.domain(domain.uuid)
+            });
+        })
+        .then(function(list) {
+          expect(Object.keys(list).length).to.equal(1);
+          expect(list[user2.uuid]).to.eql(user2);
+          // Check again, but include deleted users
+          return users.domain(domain.uuid, true);
+        })
+        .then(function(list) {
+          expect(list[user.uuid].deleted_at).to.be.instanceof(Date);
+          expect(list[user2.uuid].deleted_at).not.to.exist;
+          return users.find(attr.email);
+        })
+        .then(function(found) {
+          expect(found).to.eql(user2);
+          done();
+        })
+        .catch(done);
+    })
 
   })
 });

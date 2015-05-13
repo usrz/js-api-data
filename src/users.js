@@ -63,6 +63,10 @@ class Users {
     })
   }
 
+  domain(domain, include_deleted, query) {
+    return instances.get(this).users.parent(domain, include_deleted, query);
+  }
+
   create(domain, attributes, query) {
     var inst = instances.get(this);
     var self = this;
@@ -129,6 +133,20 @@ class Users {
             });
         })
     });
+  }
+
+  delete(uuid, query) {
+    var inst = instances.get(this);
+    var self = this;
+
+    return instances.get(this).users.delete(uuid, query)
+      .then(function(deleted) {
+        if (! deleted) return null;
+        return inst.index.clear(nil, uuid, query)
+          .then(function() {
+            return deleted;
+          })
+      })
   }
 }
 

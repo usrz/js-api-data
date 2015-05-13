@@ -180,7 +180,7 @@ class DbStore {
 
     return query(sql, uuid)
       .then(function(result) {
-        if ((! result) || (! result.rows) || (! result.rows[0])) return [];
+        if ((! result) || (! result.rows) || (! result.rows[0])) return {};
         var objects = {};
         for (var i in result.rows) {
           var object = new DbObject(result.rows[i], inst.keyManager);

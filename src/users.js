@@ -26,35 +26,35 @@ var validator = new Validator({
   'credentials.stored_key': { presence: true, type: 'string' },
   'credentials.hash':       { presence: true, type: 'string' },
   'credentials.salt':       { presence: true, type: 'string' },
-})
+});
 
-const instances = new WeakMap();
+const DOMAINS = Symbol('domains');
+const CLIENT = Symbol('client');
+const STORE = Symbol('store');
+const INDEX = Symbol('index');
 
 class Users {
   constructor(keyManager, client) {
-    instances.set(this, {
-      client: client,
-      users: new DbStore('users', keyManager, client, validator),
-      index: new DbIndex('users_index', client),
-      domains: new Domains(keyManager, client)
-    });
+    this[CLIENT] = client;
+    this[STORE] = new DbStore('users', keyManager, client, validator);
+    this[INDEX] = new DbIndex('users_index', client);
+    this[DOMAINS] = new Domains(keyManager, client);
   }
 
   get(uuid, include_deleted) {
-    return instances.get(this).users.select(uuid, include_deleted);
+    return this[STORE].select(uuid, include_deleted);
   }
 
   find(email) {
-    var inst = instances.get(this);
     var self = this;
 
     // Reuse connection
-    return inst.client.read(function(query) {
-      return inst.index.find(nil, 'email', email, query)
+    return self[CLIENT].read(function(query) {
+      return self[INDEX].find(nil, 'email', email, query)
         .then(function(uuid) {
           if (! uuid) return null;
 
-          return inst.users.select(uuid, true, query) // yes, include deleted
+          return self[STORE].select(uuid, true, query) // yes, include deleted
             .then(function(user) {
               if (user.deleted_at) throw new Error(`Found deleted user "${uuid}"`);
               return user;
@@ -64,20 +64,19 @@ class Users {
   }
 
   domain(domain, include_deleted, query) {
-    return instances.get(this).users.parent(domain, include_deleted, query);
+    return this[STORE].parent(domain, include_deleted, query);
   }
 
   create(domain, attributes, query) {
-    var inst = instances.get(this);
     var self = this;
 
     // Execute all in a transaction (if one was not specified)
-    if (! query) return inst.client.transaction(function(query) {
+    if (! query) return self[CLIENT].transaction(function(query) {
       return self.create(domain, attributes, query);
     });
 
     // Start checking if we have the domain
-    return inst.domains.get(domain, query)
+    return self[DOMAINS].get(domain, query)
 
       // Do we have the correct domain?
       .then(function(domain_object) {
@@ -90,14 +89,14 @@ class Users {
         }
 
         // Insert the user
-        return inst.users.insert(domain, attributes, query)
+        return self[STORE].insert(domain, attributes, query)
           .then(function(user) {
             if (! user) throw new Error('No user was created');
 
             // Index email address and return the user we created
             return user.attributes()
               .then(function(attributes) {
-                return inst.index.index(nil, user.uuid, { email: attributes.email }, query)
+                return self[INDEX].index(nil, user.uuid, { email: attributes.email }, query)
               })
               .then(function(indexed) {
                 return user;
@@ -107,10 +106,9 @@ class Users {
   }
 
   modify(uuid, attributes) {
-    var inst = instances.get(this);
     var self = this;
 
-    return inst.client.transaction(function(query) {
+    return self[CLIENT].transaction(function(query) {
 
       // Should we convert a password to credentials?
       if (attributes.password) {
@@ -119,14 +117,14 @@ class Users {
       }
 
       // Modify the user
-      return inst.users.update(uuid, attributes, query)
+      return self[STORE].update(uuid, attributes, query)
         .then(function(user) {
           if (! user) throw new Error('No user was modified');
 
           // Re-index email address and return the updated user
           return user.attributes()
             .then(function(attributes) {
-              return inst.index.index(nil, user.uuid, { email: attributes.email }, query)
+              return self[INDEX].index(nil, user.uuid, { email: attributes.email }, query)
             })
             .then(function(indexed) {
               return user;
@@ -136,13 +134,12 @@ class Users {
   }
 
   delete(uuid, query) {
-    var inst = instances.get(this);
     var self = this;
 
-    return instances.get(this).users.delete(uuid, query)
+    return this[STORE].delete(uuid, query)
       .then(function(deleted) {
         if (! deleted) return null;
-        return inst.index.clear(nil, uuid, query)
+        return self[INDEX].clear(nil, uuid, query)
           .then(function() {
             return deleted;
           })

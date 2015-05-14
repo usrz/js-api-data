@@ -7,6 +7,18 @@ const UUID = require('./uuid');
 
 const util = require('util');
 
+// Symbols for our private properties
+const ENCRYPTION_KEY = Symbol('encryption_key');
+const ENCRYPTED_DATA = Symbol('encrypted_data');
+const KEY_MANAGER    = Symbol('key_manager');
+const SELECT_SQL     = Symbol('select_sql');
+const PARENT_SQL     = Symbol('parent_sql');
+const INSERT_SQL     = Symbol('insert_sql');
+const UPDATE_SQL     = Symbol('update_sql');
+const DELETE_SQL     = Symbol('delete_sql');
+const VALIDATE       = Symbol('validate');
+const CLIENT         = Symbol('client');
+
 // Merge a couple of objects (for updates)
 function merge(one, two) {
   if (!util.isObject(one)) throw new Error('First object to merge not an object');
@@ -42,7 +54,6 @@ function merge(one, two) {
 /* ========================================================================== *
  * DB OBJECT CLASS                                                            *
  * ========================================================================== */
-var objects = new WeakMap();
 
 class DbObject {
   constructor (row, keyManager) {
@@ -56,21 +67,17 @@ class DbObject {
     this.updated_at = row.updated_at || null;
     this.deleted_at = row.deleted_at || null;
 
-    objects.set(this, {
-      encryption_key: row.encryption_key,
-      encrypted_data: row.encrypted_data,
-      key_manager: keyManager
-    });
+    this[ENCRYPTION_KEY] = row.encryption_key;
+    this[ENCRYPTED_DATA] = row.encrypted_data;
+    this[KEY_MANAGER] = keyManager;
   }
 
   attributes() {
-    var object = objects.get(this);
     var self = this;
-
-    return object.key_manager.get(object.encryption_key)
-      .then(function(encryption_key) {
-        if (encryption_key != null) return encryption_key.decrypt(object.encrypted_data);
-        throw new Error(`Key "${object.encryption_key}" unavailable for "${self.uuid}"`);
+    return self[KEY_MANAGER].get(self[ENCRYPTION_KEY])
+      .then(function(decryption_key) {
+        if (decryption_key != null) return decryption_key.decrypt(self[ENCRYPTED_DATA]);
+        throw new Error(`Key "${self[ENCRYPTION_KEY]}" unavailable for "${self.uuid}"`);
       })
 
     return Promise.resolve(this.foo);
@@ -80,8 +87,6 @@ class DbObject {
 /* ========================================================================== *
  * DB STORE CLASS                                                             *
  * ========================================================================== */
-
-var instances = new WeakMap();
 
 class DbStore {
   constructor(tableName, keyManager, client, validator) {
@@ -105,18 +110,15 @@ class DbStore {
      * Remember our instance variables                                        *
      * ---------------------------------------------------------------------- */
 
-    instances.set(this, {
-      SELECT_SQL: `SELECT * FROM "${tableName}" WHERE "uuid" = $1::uuid`,
-      PARENT_SQL: `SELECT * FROM "${tableName}" WHERE "parent" = $1::uuid`,
-      INSERT_SQL: `INSERT INTO "${tableName}" ("parent", "encryption_key", "encrypted_data") VALUES ($1::uuid, $2::uuid, $3::bytea) RETURNING *`,
-      UPDATE_SQL: `UPDATE "${tableName}" SET "encryption_key" = $2::uuid, "encrypted_data" = $3::bytea WHERE "uuid" = $1::uuid RETURNING *`,
-      DELETE_SQL: `UPDATE "${tableName}" SET "deleted_at" = NOW() WHERE "uuid" = $1::uuid RETURNING *`,
-      keyManager: keyManager,
-      //encrypt: keyManager.encrypt.bind(keyManager),
-      //decrypt: decrypt.bind(this),
-      validate: validate,
-      client: client
-    })
+    this[KEY_MANAGER] = keyManager;
+    this[SELECT_SQL] = `SELECT * FROM "${tableName}" WHERE "uuid" = $1::uuid`;
+    this[PARENT_SQL] = `SELECT * FROM "${tableName}" WHERE "parent" = $1::uuid`;
+    this[INSERT_SQL] = `INSERT INTO "${tableName}" ("parent", "encryption_key", "encrypted_data") VALUES ($1::uuid, $2::uuid, $3::bytea) RETURNING *`;
+    this[UPDATE_SQL] = `UPDATE "${tableName}" SET "encryption_key" = $2::uuid, "encrypted_data" = $3::bytea WHERE "uuid" = $1::uuid RETURNING *`;
+    this[DELETE_SQL] = `UPDATE "${tableName}" SET "deleted_at" = NOW() WHERE "uuid" = $1::uuid RETURNING *`;
+    this[VALIDATE] = validate;
+    this[CLIENT] = client;
+
   }
 
   /* ------------------------------------------------------------------------ *
@@ -124,7 +126,6 @@ class DbStore {
    * ------------------------------------------------------------------------ */
 
   select(uuid, include_deleted, query) {
-    var inst = instances.get(this);
     var self = this;
 
     // Check for optional "include_deleted"
@@ -138,18 +139,18 @@ class DbStore {
     if (! uuid) return Promise.resolve(null);
 
     // No query? Connect for "SELECT" (no updates)
-    if (! query) return inst.client.read(function(query) {
+    if (! query) return self[CLIENT].read(function(query) {
       return self.select(uuid, include_deleted, query);
     });
 
     // Execute our SQL
-    var sql = instances.get(self).SELECT_SQL;
+    var sql = self[SELECT_SQL];
     if (! include_deleted) sql += ' AND deleted_at IS NULL';
 
     return query(sql, uuid)
       .then(function(result) {
         if ((! result) || (! result.rows) || (! result.rows[0])) return null;
-        return new DbObject(result.rows[0], inst.keyManager);
+        return new DbObject(result.rows[0], self[KEY_MANAGER]);
       });
   }
 
@@ -158,7 +159,6 @@ class DbStore {
    * ------------------------------------------------------------------------ */
 
   parent(uuid, include_deleted, query) {
-    var inst = instances.get(this);
     var self = this;
 
     // Null for invalid UUIDs
@@ -171,11 +171,11 @@ class DbStore {
       include_deleted = false;
     }
 
-    if (! query) return inst.client.read(function(query) {
+    if (! query) return self[CLIENT].read(function(query) {
       return self.parent(uuid, include_deleted, query);
     });
 
-    var sql = inst.PARENT_SQL;
+    var sql = self[PARENT_SQL];
     if (! include_deleted) sql += ' AND deleted_at IS NULL';
 
     return query(sql, uuid)
@@ -183,7 +183,7 @@ class DbStore {
         if ((! result) || (! result.rows) || (! result.rows[0])) return {};
         var objects = {};
         for (var i in result.rows) {
-          var object = new DbObject(result.rows[i], inst.keyManager);
+          var object = new DbObject(result.rows[i], self[KEY_MANAGER]);
           objects[object.uuid] = object;
         }
         return objects;
@@ -195,24 +195,23 @@ class DbStore {
    * ------------------------------------------------------------------------ */
 
   insert(parent, attributes, query) {
-    var inst = instances.get(this);
     var self = this;
 
     // Null for invalid UUIDs
     parent = UUID.validate(parent);
     if (! parent) return Promise.resolve(null);
 
-    if (! query) return inst.client.write(function(query) {
+    if (! query) return self[CLIENT].write(function(query) {
       return self.insert(parent, attributes, query);
     });
 
     return new Promise(function (resolve, reject) {
-      resolve(inst.keyManager.encrypt(inst.validate(merge({}, attributes)))
+      resolve(self[KEY_MANAGER].encrypt(self[VALIDATE](merge({}, attributes)))
         .then(function(encrypted) {
-          return query(inst.INSERT_SQL, parent, encrypted.key, encrypted.data)
+          return query(self[INSERT_SQL], parent, encrypted.key, encrypted.data)
             .then(function(result) {
               if ((! result) || (! result.rows) || (! result.rows[0])) return null;
-              return new DbObject(result.rows[0], inst.keyManager);
+              return new DbObject(result.rows[0], self[KEY_MANAGER]);
             });
         }));
     });
@@ -223,10 +222,9 @@ class DbStore {
    * ------------------------------------------------------------------------ */
 
   update(uuid, attributes, query) {
-    var inst = instances.get(this);
     var self = this;
 
-    if (! query) return inst.client.write(function(query) {
+    if (! query) return self[CLIENT].write(function(query) {
       return self.update(uuid, attributes, query);
     });
 
@@ -237,13 +235,13 @@ class DbStore {
         // Resolve (decrypt) old attributes, merge, validate then encrypt...
         return result.attributes()
           .then(function(old_attr) {
-            return inst.keyManager.encrypt(inst.validate(merge(old_attr, attributes)))
+            return self[KEY_MANAGER].encrypt(self[VALIDATE](merge(old_attr, attributes)))
           })
           .then(function(encrypted) {
-            return query(inst.UPDATE_SQL, uuid, encrypted.key, encrypted.data)
+            return query(self[UPDATE_SQL], uuid, encrypted.key, encrypted.data)
               .then(function(result) {
                 if ((! result) || (! result.rows) || (! result.rows[0])) return null;
-                return new DbObject(result.rows[0], inst.keyManager);
+                return new DbObject(result.rows[0], self[KEY_MANAGER]);
               });
           });
       });
@@ -253,21 +251,20 @@ class DbStore {
    * Soft delete from the DB and return old record                            *
    * ------------------------------------------------------------------------ */
   delete(uuid, query) {
-    var inst = instances.get(this);
     var self = this;
 
     // Null for invalid UUIDs
     uuid = UUID.validate(uuid);
     if (! uuid) return Promise.resolve(null);
 
-    if (! query) return inst.client.write(function(query) {
+    if (! query) return self[CLIENT].write(function(query) {
       return self.delete(uuid, query);
     });
 
-    return query(inst.DELETE_SQL, uuid)
+    return query(self[DELETE_SQL], uuid)
       .then(function(result) {
         if ((! result) || (! result.rows) || (! result.rows[0])) return null;
-        return new DbObject(result.rows[0], inst.keyManager);
+        return new DbObject(result.rows[0], self[KEY_MANAGER]);
       });
   }
 }

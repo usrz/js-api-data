@@ -4,7 +4,6 @@ const DbStore = require('./db-store');
 const Validator = require('./validator');
 
 const nil = require('./uuid').NULL.toString();
-const domains = new WeakMap();
 
 var validator = new Validator({
   name: {
@@ -18,25 +17,27 @@ var validator = new Validator({
   }
 })
 
+const STORE = Symbol('store');
+
 class Domains {
   constructor(keyManager, client) {
-    domains.set(this, new DbStore("domains", keyManager, client, validator));
+    this[STORE] = new DbStore("domains", keyManager, client, validator);
   }
 
   get(uuid, include_deleted, query) {
-    return domains.get(this).select(uuid, include_deleted, query);
+    return this[STORE].select(uuid, include_deleted, query);
   }
 
   create(attributes, query) {
-    return domains.get(this).insert(nil, attributes, query);
+    return this[STORE].insert(nil, attributes, query);
   }
 
   modify(uuid, attributes, query) {
-    return domains.get(this).update(uuid, attributes, query);
+    return this[STORE].update(uuid, attributes, query);
   }
 
   delete(uuid, query) {
-    return domains.get(this).delete(uuid, query);
+    return this[STORE].delete(uuid, query);
   }
 }
 

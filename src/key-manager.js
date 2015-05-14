@@ -21,12 +21,10 @@ const V1_TAG = new Buffer([0x01]);
 const V2_TAG = new Buffer([0x02]);
 const V3_TAG = new Buffer([0x03]);
 
-// Encryption keys (buffers)
-const encryptionKeys = new WeakMap();
-
 /* ========================================================================== *
  * OUR KEY CLASS (encrypts, decripts, hides key buffer)                       *
  * ========================================================================== */
+const ENCRYPTION_KEY = Symbol('encryption_key');
 
 class Key {
   constructor(uuid, key, created_at, deleted_at) {
@@ -38,7 +36,7 @@ class Key {
     if (!util.isBuffer(key)) throw new Error('Encryption key is not a buffer');
     if (key.length != 32) throw new Error('Encryption key must be 256 bits long');
 
-    encryptionKeys.set(this, key);
+    this[ENCRYPTION_KEY] = key;
 
     // Remember our created/deleted dates (if any)
     this.created_at = created_at ? created_at : new Date();
@@ -52,7 +50,7 @@ class Key {
    * Encrypt some data with this key                                          *
    * ------------------------------------------------------------------------ */
   encrypt(data) {
-    var key = encryptionKeys.get(this);
+    var key = this[ENCRYPTION_KEY];
 
     // Default, buffers
     var vx_tag = V1_TAG;
@@ -93,7 +91,7 @@ class Key {
    * Decrypt some data with this key                                          *
    * ------------------------------------------------------------------------ */
   decrypt(data) {
-    var key = encryptionKeys.get(this);
+    var key = this[ENCRYPTION_KEY];
 
     // Validate what we have...
     if (! util.isBuffer(data)) throw new Error('Encrypted data must be a buffer');
@@ -144,9 +142,8 @@ class Key {
     if (! object) return false;
     if (object === this) return true;
 
-    var key = encryptionKeys.get(this);
-    if (object instanceof Key) return object.equals(key);
-    if (util.isBuffer(object)) return Buffer.compare(key, object) == 0;
+    var key = this[ENCRYPTION_KEY];
+    if (object instanceof Key) return object[ENCRYPTION_KEY].equals(key);
     return false;
   }
 }

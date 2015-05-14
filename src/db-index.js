@@ -32,7 +32,10 @@ IndexError.prototype.name = 'IndexError';
  * DB INDEX CLASS                                                             *
  * ========================================================================== */
 
-var instances = new WeakMap();
+const SELECT_SQL = Symbol('select_sql');
+const INSERT_SQL = Symbol('insert_sql');
+const DELETE_SQL = Symbol('delete_sql');
+const CLIENT = Symbol('client');
 
 class DbIndex {
   constructor(tableName, client) {
@@ -44,23 +47,21 @@ class DbIndex {
     // Access to our database (RO/RW)
     if (!(client instanceof DbClient)) throw new Error('Database client not specified or invalid');
 
-    instances.set(this, {
-      SELECT_SQL: `SELECT "owner" FROM "${tableName}" WHERE "scope" = $1::uuid AND "value" = $2::uuid`,
-      INSERT_SQL: `INSERT INTO "${tableName}" ("scope", "owner", "value") VALUES `,
-      DELETE_SQL: `DELETE FROM "${tableName}" WHERE "scope" = $1::uuid AND "owner" = $2::uuid`,
-      client: client
-    });
+    // Remember our private properties
+    this[SELECT_SQL] = `SELECT "owner" FROM "${tableName}" WHERE "scope" = $1::uuid AND "value" = $2::uuid`;
+    this[INSERT_SQL] = `INSERT INTO "${tableName}" ("scope", "owner", "value") VALUES `;
+    this[DELETE_SQL] = `DELETE FROM "${tableName}" WHERE "scope" = $1::uuid AND "owner" = $2::uuid`;
+    this[CLIENT] = client;
   }
 
   /* ------------------------------------------------------------------------ *
    * Index the attributes in the given scope, associating them with the owner *
    * ------------------------------------------------------------------------ */
   index(scope, owner, attributes, query) {
-    var inst = instances.get(this);
     var self = this;
 
     // Execute DELETE/INSERT in a transaction
-    if (! query) return inst.client.transaction(function(query) {
+    if (! query) return self[CLIENT].transaction(function(query) {
       return self.index(scope, owner, attributes, query);
     });
 
@@ -92,7 +93,7 @@ class DbIndex {
 
         // Shortcut w/o using "find", as we already have V5 UUIDs
         keys.forEach(function(key) {
-          promises.push(query(inst.SELECT_SQL, scope, values[key])
+          promises.push(query(self[SELECT_SQL], scope, values[key])
             .then(function(result) {
               if ((! result) || (! result.rows) || (! result.rows[0])) return null;
               return result.rows[0].owner;
@@ -116,7 +117,7 @@ class DbIndex {
             if (duplicates_found) throw new IndexError(scope, owner, duplicates);
 
             // Coast is clear, just insert...
-            return query(inst.INSERT_SQL + sql.join(', '), params)
+            return query(self[INSERT_SQL] + sql.join(', '), params)
           })
           .then(function() {
             // Return map of { attribute --> v5 uuid }
@@ -129,7 +130,6 @@ class DbIndex {
    * Find any owner matching the specified attribute in the given scope       *
    * ------------------------------------------------------------------------ */
   find(scope, key, value, query) {
-    var inst = instances.get(this);
     var self = this;
 
     // Empty array for invalud UUIDs
@@ -137,7 +137,7 @@ class DbIndex {
     if (! scope) return Promise.resolve(null);
 
     // Connect to the DB if not already
-    if (! query) return inst.client.read(function(query) {
+    if (! query) return self[CLIENT].read(function(query) {
       return self.find(scope, key, value, query);
     });
 
@@ -150,7 +150,7 @@ class DbIndex {
         var uuid = UUID.v5(scope, key + ":" + value);
 
         // Insert our indexable values...
-        resolve(query(inst.SELECT_SQL, scope, uuid)
+        resolve(query(self[SELECT_SQL], scope, uuid)
           .then(function(result) {
             if ((! result) || (! result.rows) || (! result.rows[0])) return null;
             return result.rows[0].owner;
@@ -162,15 +162,14 @@ class DbIndex {
    * Clear (un/de-index) any value associated with the given scope and owner  *
    * ------------------------------------------------------------------------ */
   clear(scope, owner, query) {
-    var inst = instances.get(this);
     var self = this;
 
     // Connect to the DB if not already
-    if (! query) return inst.client.write(function(query) {
+    if (! query) return self[CLIENT].write(function(query) {
       return self.clear(scope, owner, query);
     });
 
-    return query(inst.DELETE_SQL, scope, owner)
+    return query(self[DELETE_SQL], scope, owner)
       .then(function() {});
   }
 

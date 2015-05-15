@@ -26,6 +26,31 @@ var validator = new Validator({
   'credentials.stored_key': { presence: true, type: 'string' },
   'credentials.hash':       { presence: true, type: 'string' },
   'credentials.salt':       { presence: true, type: 'string' },
+  // Posix attributes (optional)
+  'uid': {
+    numericality: {
+      onlyInteger: true,
+      noStrings: true,
+      greaterThan: 0,
+      lessThanOrEqualTo: 0x7FFFFFFF
+    }
+  },
+  'gid': {
+    numericality: {
+      onlyInteger: true,
+      noStrings: true,
+      greaterThan: 0,
+      lessThanOrEqualTo: 0x7FFFFFFF
+    }
+  },
+  'user_name': {
+    normalize: true,
+    type: 'string',
+    length: {
+      minimum: 1,
+      maximum: 64,
+    }
+  }
 });
 
 const DOMAINS = Symbol('domains');

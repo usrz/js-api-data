@@ -207,3 +207,30 @@ ALTER TABLE "users_index"
 -- Protect against updates
 CREATE TRIGGER "users_index_update" BEFORE UPDATE ON "users_index"
   FOR EACH ROW EXECUTE PROCEDURE "fn_prevent_trigger" ();
+
+-- * ========================================================================= *
+-- * POSIX ATTRIBUTES INDEX
+-- * ========================================================================= *
+
+CREATE TABLE "posix_index" (
+  "scope"      UUID                     NOT NULL,
+  "owner"      UUID                     NOT NULL,
+  "value"      UUID                     NOT NULL,
+  "indexed_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE "posix_index"
+  ADD CONSTRAINT "posix_index_pkey"
+      PRIMARY KEY ("value");
+
+-- Protect against updates
+CREATE TRIGGER "posix_index_update" BEFORE UPDATE ON "posix_index"
+  FOR EACH ROW EXECUTE PROCEDURE "fn_prevent_trigger" ();
+
+-- * ========================================================================= *
+
+CREATE TABLE "posix_users_index" () INHERITS ("posix_index");
+
+ALTER TABLE "posix_users_index"
+  ADD CONSTRAINT "posix_users_index_users_fkey"
+      FOREIGN KEY ("owner") REFERENCES "users" ("uuid");

@@ -19,15 +19,20 @@ var TestDB = exports = module.exports = function TestDB(ddl, host) {
 
   this.before = function before(done) {
     var client = new pg.Client(`postgres://${host}/postgres`);
+    var error = function(err) {
+      client.end();
+      done(err);
+    }
+
     client.connect(function(err) {
-      if (err) return done(err);
+      if (err) return error(err);
 
       client.query(`CREATE DATABASE "${database}"`, function(err) {
-        if (err) return done(err);
+        if (err) return error(err);
         client.query(`CREATE USER "${ro_user}" WITH PASSWORD 'ro_password'`, function(err) {
-          if (err) return done(err);
+          if (err) return error(err);
           client.query(`CREATE USER "${rw_user}" WITH PASSWORD 'rw_password'`, function(err) {
-            if (err) return done(err);
+            if (err) return error(err);
             client.end();
 
             if (! ddl) {
@@ -37,13 +42,13 @@ var TestDB = exports = module.exports = function TestDB(ddl, host) {
 
             client = new pg.Client(`postgres://${host}/${database}`);
             client.connect(function(err) {
-              if (err) return done(err);
+              if (err) return error(err);
               client.query(ddl, function(err) {
-                if (err) return done(err);
+                if (err) return error(err);
                 client.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO "${rw_user}"`, function(err) {
-                  if (err) return done(err);
+                  if (err) return error(err);
                   client.query(`GRANT SELECT ON ALL TABLES IN SCHEMA public TO "${ro_user}"`, function(err) {
-                    if (err) return done(err);
+                    if (err) return error(err);
                     client.end();
                     console.log('    \x1B[36m\u272d\x1B[0m database "' + database + '" created');
                     done();
@@ -59,15 +64,21 @@ var TestDB = exports = module.exports = function TestDB(ddl, host) {
 
   this.after = function after(done) {
     pg.end(); // kill all connections
+
     var client = new pg.Client(`postgres://${host}/postgres`);
+    var error = function(err) {
+      client.end();
+      done(err);
+    }
+
     client.connect(function(err) {
-      if (err) return done(err);
-      client.query(`DROP DATABASE "${database}"`, function(err) {
-        if (err) return done(err);
-        client.query(`DROP USER "${ro_user}"`, function(err) {
-          if (err) return done(err);
-          client.query(`DROP USER "${rw_user}"`, function(err) {
-            if (err) return done(err);
+      if (err) return error(err);
+      var q = client.query(`DROP DATABASE IF EXISTS "${database}"`, function(err) {
+        if (err) return error(err);
+        client.query(`DROP USER IF EXISTS "${ro_user}"`, function(err) {
+          if (err) return error(err);
+          client.query(`DROP USER IF EXISTS "${rw_user}"`, function(err) {
+            if (err) return error(err);
             client.end();
             console.log('    \x1B[36m\u272d\x1B[0m database "' + database + '" dropped');
             done();

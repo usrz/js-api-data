@@ -45,6 +45,40 @@ validate.validators.normalize = function(value, options, key, attributes) {
   }
 }
 
+/* ========================================================================== */
+
+// Merge a couple of objects
+function merge(one, two) {
+  if (!util.isObject(one)) throw new Error('First object to merge not an object');
+  if (!util.isObject(two)) throw new Error('Second object to merge not an object');
+
+  var result = {};
+
+  // Copy keys from first object
+  Object.keys(one).forEach(function(key) {
+    result[key] = one[key];
+  });
+
+  // Deep merge or override from second
+  Object.keys(two).forEach(function(key) {
+    if (util.isObject(result[key]) && util.isObject(two[key])) {
+      result[key] = merge(result[key], two[key]);
+    } else {
+      result[key] = two[key];
+    }
+  })
+
+  // Wipe out all null and empty string results
+  Object.keys(result).forEach(function(key) {
+    var value = result[key];
+    if ((value == null) || (util.isString(value) && value.match(/^\s+$/)))
+      delete result[key];
+  });
+
+  // Done!
+  return result;
+}
+
 /* ========================================================================== *
  * VALIDATION ERROR CLASS                                                     *
  * ========================================================================== */
@@ -77,11 +111,17 @@ class Validator {
     if (errors == null) return object;
     throw new ValidationError(object, errors);
   }
+
+  extend(constraints) {
+    if (! util.isObject(constraints)) throw new Error("Invalid or missing constraints");
+    return new Validator(merge(this.constraints, constraints));
+  }
 }
 
 /* ========================================================================== *
  * MODULE EXPORTS                                                            *
  * ========================================================================== */
 
+Validator.merge = merge;
 Validator.ValidationError = ValidationError;
 exports = module.exports = Validator;

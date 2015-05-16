@@ -19,38 +19,6 @@ const DELETE_SQL     = Symbol('delete_sql');
 const VALIDATE       = Symbol('validate');
 const CLIENT         = Symbol('client');
 
-// Merge a couple of objects (for updates)
-function merge(one, two) {
-  if (!util.isObject(one)) throw new Error('First object to merge not an object');
-  if (!util.isObject(two)) throw new Error('Second object to merge not an object');
-
-  var result = {};
-
-  // Copy keys from first object
-  Object.keys(one).forEach(function(key) {
-    result[key] = one[key];
-  });
-
-  // Deep merge or override from second
-  Object.keys(two).forEach(function(key) {
-    if (util.isObject(result[key]) && util.isObject(two[key])) {
-      result[key] = merge(result[key], two[key]);
-    } else {
-      result[key] = two[key];
-    }
-  })
-
-  // Wipe out all null and empty string results
-  Object.keys(result).forEach(function(key) {
-    var value = result[key];
-    if ((value == null) || (util.isString(value) && value.match(/^\s+$/)))
-      delete result[key];
-  });
-
-  // Done!
-  return result;
-}
-
 /* ========================================================================== *
  * DB OBJECT CLASS                                                            *
  * ========================================================================== */
@@ -206,7 +174,7 @@ class DbStore {
     });
 
     return new Promise(function (resolve, reject) {
-      resolve(self[KEY_MANAGER].encrypt(self[VALIDATE](merge({}, attributes)))
+      resolve(self[KEY_MANAGER].encrypt(self[VALIDATE](Validator.merge({}, attributes)))
         .then(function(encrypted) {
           return query(self[INSERT_SQL], parent, encrypted.key, encrypted.data)
             .then(function(result) {
@@ -235,7 +203,7 @@ class DbStore {
         // Resolve (decrypt) old attributes, merge, validate then encrypt...
         return result.attributes()
           .then(function(old_attr) {
-            return self[KEY_MANAGER].encrypt(self[VALIDATE](merge(old_attr, attributes)))
+            return self[KEY_MANAGER].encrypt(self[VALIDATE](Validator.merge(old_attr, attributes)))
           })
           .then(function(encrypted) {
             return query(self[UPDATE_SQL], uuid, encrypted.key, encrypted.data)

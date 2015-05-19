@@ -6,6 +6,7 @@ const DbClient = require('./db-client');
 const UUID = require('./uuid');
 
 const util = require('util');
+const joi = require('joi');
 
 // Symbols for our private properties
 const ENCRYPTION_KEY = Symbol('encryption_key');
@@ -104,7 +105,14 @@ class DbStore {
     if (! validator) validate = function(object) { return object };
     else if (validator instanceof Validator) validate = validator.validate.bind(validator);
     else if (typeof(validator) === 'function') validate = validator;
-    else throw new Error('Validator must be a function or Validator instance');
+    else if ((typeof(validator) === 'object') && (validator.isJOI === true)) {
+      validate = function(object) {
+        // TODO!!!!
+        var result = joi.validate(object, validator);
+        if (result.error) throw result.error;
+        return result.value;
+      };
+    } else throw new Error('Validator must be a function or Validator instance');
 
     /* ---------------------------------------------------------------------- *
      * Remember our instance variables                                        *

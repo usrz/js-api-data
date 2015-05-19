@@ -18,9 +18,11 @@ var TestDB = exports = module.exports = function TestDB(ddl, host) {
   this.client = new DbClient(this.ro_uri, this.rw_uri);
 
   this.before = function before(done) {
+    pg.end();
     var client = new pg.Client(`postgres://${host}/postgres`);
     var error = function(err) {
       client.end();
+      pg.end();
       done(err);
     }
 
@@ -37,6 +39,7 @@ var TestDB = exports = module.exports = function TestDB(ddl, host) {
 
             if (! ddl) {
               console.log('    \x1B[36m\u272d\x1B[0m database "' + database + '" created');
+              pg.end();
               return done();
             }
 
@@ -50,6 +53,7 @@ var TestDB = exports = module.exports = function TestDB(ddl, host) {
                   client.query(`GRANT SELECT ON ALL TABLES IN SCHEMA public TO "${ro_user}"`, function(err) {
                     if (err) return error(err);
                     client.end();
+                    pg.end();
                     console.log('    \x1B[36m\u272d\x1B[0m database "' + database + '" created');
                     done();
                   });
@@ -68,6 +72,7 @@ var TestDB = exports = module.exports = function TestDB(ddl, host) {
     var client = new pg.Client(`postgres://${host}/postgres`);
     var error = function(err) {
       client.end();
+      pg.end();
       done(err);
     }
 
@@ -80,6 +85,8 @@ var TestDB = exports = module.exports = function TestDB(ddl, host) {
           client.query(`DROP USER IF EXISTS "${rw_user}"`, function(err) {
             if (err) return error(err);
             client.end();
+            pg.end();
+
             console.log('    \x1B[36m\u272d\x1B[0m database "' + database + '" dropped');
             done();
           });

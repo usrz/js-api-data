@@ -128,6 +128,8 @@ ALTER TABLE "domains"
   ADD CONSTRAINT "domains_encryption_keys_uuid_fkey"
       FOREIGN KEY ("encryption_key") REFERENCES "encryption_keys" ("uuid");
 
+CREATE INDEX "domains_parent_idx" ON "domains" ("parent");
+
 -- Hack-a-majig: We want "domains" to look like everything else (this having a
 -- "parent" owner). This simplifies the code on the store side (avoid copy and
 -- paste) but we want to make sure on insert that domains have self as parent
@@ -168,6 +170,8 @@ CREATE TABLE "users" (
   "deleted_at"     TIMESTAMP WITH TIME ZONE          DEFAULT NULL
 );
 
+CREATE INDEX "users_parent_idx" ON "users" ("parent");
+
 ALTER TABLE "users"
   ADD CONSTRAINT "users_pkey"
       PRIMARY KEY ("uuid"),
@@ -204,6 +208,9 @@ ALTER TABLE "users_index"
   ADD CONSTRAINT "users_index_users_fkey"
       FOREIGN KEY ("owner") REFERENCES "users" ("uuid");
 
+CREATE INDEX "users_index_scope_idx" ON "users_index" ("scope");
+CREATE INDEX "users_index_owner_idx" ON "users_index" ("owner");
+
 -- Protect against updates
 CREATE TRIGGER "users_index_update" BEFORE UPDATE ON "users_index"
   FOR EACH ROW EXECUTE PROCEDURE "fn_prevent_trigger" ();
@@ -219,18 +226,28 @@ CREATE TABLE "posix_index" (
   "indexed_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
+-- "Foreign key" on either "users" or "groups"
+CREATE FUNCTION posix_index_check_owner(uuid) RETURNS boolean AS $$
+BEGIN
+  PERFORM * FROM users WHERE uuid = $1;
+  IF NOT FOUND THEN
+    PERFORM * FROM domains WHERE uuid = $1;
+  END IF;
+  RETURN FOUND;
+END;
+$$ LANGUAGE 'plpgsql';
+
 ALTER TABLE "posix_index"
   ADD CONSTRAINT "posix_index_pkey"
-      PRIMARY KEY ("value");
+      PRIMARY KEY ("value"),
+  ADD CONSTRAINT "posix_index_domains_fkey"
+      FOREIGN KEY ("scope") REFERENCES "domains" ("uuid"),
+  ADD CONSTRAINT "posix_index_owner_check"
+      CHECK (posix_index_check_owner(owner));
+
+CREATE INDEX "posix_index_scope_idx" ON "posix_index" ("scope");
+CREATE INDEX "posix_index_owner_idx" ON "posix_index" ("owner");
 
 -- Protect against updates
 CREATE TRIGGER "posix_index_update" BEFORE UPDATE ON "posix_index"
   FOR EACH ROW EXECUTE PROCEDURE "fn_prevent_trigger" ();
-
--- * ========================================================================= *
-
-CREATE TABLE "posix_users_index" () INHERITS ("posix_index");
-
-ALTER TABLE "posix_users_index"
-  ADD CONSTRAINT "posix_users_index_users_fkey"
-      FOREIGN KEY ("owner") REFERENCES "users" ("uuid");

@@ -33,6 +33,7 @@ IndexError.prototype.name = 'IndexError';
  * ========================================================================== */
 
 const SELECT_SQL = Symbol('select_sql');
+const SCOPED_SQL = Symbol('scoped_sql');
 const INSERT_SQL = Symbol('insert_sql');
 const DELETE_SQL = Symbol('delete_sql');
 const CLIENT = Symbol('client');
@@ -49,6 +50,7 @@ class DbIndex {
 
     // Remember our private properties
     this[SELECT_SQL] = `SELECT "owner" FROM "${tableName}" WHERE "scope" = $1::uuid AND "value" = $2::uuid`;
+    this[SCOPED_SQL] = `SELECT DISTINCT("owner") FROM "${tableName}" WHERE "scope" = $1::uuid`;
     this[INSERT_SQL] = `INSERT INTO "${tableName}" ("scope", "owner", "value") VALUES `;
     this[DELETE_SQL] = `DELETE FROM "${tableName}" WHERE "scope" = $1::uuid AND "owner" = $2::uuid`;
     this[CLIENT] = client;
@@ -143,8 +145,6 @@ class DbIndex {
 
     // Wrap into a promise
     return new Promise(function(resolve, reject) {
-        var sql = [];
-        var parameters = [];
 
         // Calculate the attribute V5 UUID
         var uuid = UUID.v5(scope, key + ":" + value);
@@ -154,6 +154,37 @@ class DbIndex {
           .then(function(result) {
             if ((! result) || (! result.rows) || (! result.rows[0])) return null;
             return result.rows[0].owner;
+          }));
+    });
+  }
+
+  /* ------------------------------------------------------------------------ *
+   * Find any owner in the given scope                                        *
+   * ------------------------------------------------------------------------ */
+  scoped(scope, query) {
+    var self = this;
+
+    // Empty array for invalud UUIDs
+    scope = UUID.validate(scope);
+    if (! scope) return Promise.resolve([]);
+
+    // Connect to the DB if not already
+    if (! query) return self[CLIENT].read(function(query) {
+      return self.scoped(scope, query);
+    });
+
+    // Wrap into a promise
+    return new Promise(function(resolve, reject) {
+
+        // Insert our indexable values...
+        resolve(query(self[SCOPED_SQL], scope)
+          .then(function(result) {
+            if ((! result) || (! result.rows) || (! result.rows[0])) return [];
+            var owners = [];
+            result.rows.forEach(function(row) {
+              owners.push(row.owner);
+            })
+            return owners;
           }));
     });
   }

@@ -7,6 +7,7 @@ describe('Database Index', function() {
 
   const scope1 = '125036e8-d182-41a4-ad65-2a06180e7fe0';
   const scope2 = '4656dada-b495-43e8-bdce-27f3aa2096e8';
+  const scopeX = '838f81ba-a1d4-4302-b5f5-43d7ebecfda0';
   const owner1 = 'b2b3cbc4-dc28-464f-a087-20bead5daf2f';
   const owner2 = '387d0c2e-554c-4063-a4fe-f829bdb7e8f8';
   var file = require('path').resolve(__dirname, './ddl/db-index.test.sql');
@@ -96,6 +97,38 @@ describe('Database Index', function() {
       })
       .then(function(result) {
         expect(result).to.be.null;
+        done();
+      })
+      .catch(done);
+  });
+
+  it('should find all scoped values', function(done) {
+    if (! ok) return this.skip();
+
+    index.scoped(scope1)
+      .then(function(result) {
+        expect(result).to.be.instanceof(Array);
+        expect(result).to.include.members([owner1, owner2]);
+        expect(result.length).to.equal(2);
+
+        return index.scoped(scope2);
+      })
+      .then(function(result) {
+        expect(result).to.be.instanceof(Array);
+        expect(result[0]).to.equal(owner1);
+        expect(result.length).to.equal(1);
+
+        return index.scoped(scopeX);
+      })
+      .then(function(result) {
+        expect(result).to.be.instanceof(Array);
+        expect(result.length).to.equal(0);
+
+        return index.scoped('not-a-uuid');
+      })
+      .then(function(result) {
+        expect(result).to.be.instanceof(Array);
+        expect(result.length).to.equal(0);
         done();
       })
       .catch(done);

@@ -13,7 +13,7 @@ describe('Database Store', function() {
   var file2 = require('path').resolve(__dirname, './ddl/db-store.test.sql');
   var ddl1 = require('fs').readFileSync(file1).toString('utf8');
   var ddl2 = require('fs').readFileSync(file2).toString('utf8');
-  var testdb = require('./testdb')(ddl1 + ddl2);
+  var testdb = require('./testdb')(ddl1 + "\n" + ddl2);
   var store = null;
   var value = null;
   var vattr = null;

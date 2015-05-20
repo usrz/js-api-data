@@ -10,9 +10,11 @@ describe('Database Index', function() {
   const scopeX = '838f81ba-a1d4-4302-b5f5-43d7ebecfda0';
   const owner1 = 'b2b3cbc4-dc28-464f-a087-20bead5daf2f';
   const owner2 = '387d0c2e-554c-4063-a4fe-f829bdb7e8f8';
-  var file = require('path').resolve(__dirname, './ddl/db-index.test.sql');
-  var ddl = require('fs').readFileSync(file).toString('utf8');
-  var testdb = require('./testdb')(ddl);
+  var file1 = require('path').resolve(__dirname, '../ddl.sql');
+  var file2 = require('path').resolve(__dirname, './ddl/db-index.test.sql');
+  var ddl1 = require('fs').readFileSync(file1).toString('utf8');
+  var ddl2 = require('fs').readFileSync(file2).toString('utf8');
+  var testdb = require('./testdb')(ddl1 + "\n" + ddl2);
   var client = null;
   var index = null;
   var ok = false;

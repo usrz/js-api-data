@@ -1,57 +1,30 @@
  'use strict';
 
 const Credentials = require('./credentials');
-const Validator = require('./validator');
 const DbStore = require('./db-store');
 const DbIndex = require('./db-index');
 const Domains = require('./domains');
 
-const util = require('util');
-
 const nil = require('./uuid').NULL.toString();
 
-var validator = new Validator({
-  name: { // optional
-    normalize: true,
-    type: 'string'
-  },
-  email: { // required
-    presence: true,
-    email: true,
-  },
-  // Credentials always required!
-  'credentials':            { presence: true, type: 'object' },
-  'credentials.kdf_spec':   { presence: true, type: 'object' },
-  'credentials.server_key': { presence: true, type: 'string' },
-  'credentials.stored_key': { presence: true, type: 'string' },
-  'credentials.hash':       { presence: true, type: 'string' },
-  'credentials.salt':       { presence: true, type: 'string' },
-  // Posix attributes (optional)
-  'uid': {
-    numericality: {
-      onlyInteger: true,
-      noStrings: true,
-      greaterThan: 0,
-      lessThanOrEqualTo: 0x7FFFFFFF
-    }
-  },
-  'gid': {
-    numericality: {
-      onlyInteger: true,
-      noStrings: true,
-      greaterThan: 0,
-      lessThanOrEqualTo: 0x7FFFFFFF
-    }
-  },
-  'user_name': {
-    normalize: true,
-    type: 'string',
-    length: {
-      minimum: 1,
-      maximum: 64,
-    }
-  }
-});
+const joi = require('joi');
+
+
+const validator = joi.object({
+  name: joi.string().required().replace(/\s+/g, ' ').trim().min(1).max(1024),
+  email: joi.string().required().email().max(1024),
+  credentials: joi.object({
+    kdf_spec: joi.object().unknown(true),
+    server_key: joi.string().min(32, 'base64').max(1024, 'base64'),
+    stored_key: joi.string().min(32, 'base64').max(1024, 'base64'),
+    stored_key: joi.string().min(32, 'base64').max(1024, 'base64'),
+    salt: joi.string().min(20, 'base64').max(1024, 'base64'),
+    hash: joi.string().regex(/^SHA-(256|384|512)$/)
+  }),
+  uid: joi.number().integer().min(1).max(0x7FFFFFFF),
+  gid: joi.number().integer().min(1).max(0x7FFFFFFF),
+  user_name: joi.string().replace(/\s+/g, ' ').trim().min(1).max(64)
+}).and('uid', 'gid', 'user_name');
 
 const DOMAINS = Symbol('domains');
 const CLIENT = Symbol('client');

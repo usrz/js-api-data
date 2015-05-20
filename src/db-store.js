@@ -1,7 +1,6 @@
 'use strict';
 
 const KeyManager = require('./key-manager');
-const Validator = require('./validator');
 const DbClient = require('./db-client');
 const UUID = require('./uuid');
 
@@ -19,6 +18,40 @@ const UPDATE_SQL     = Symbol('update_sql');
 const DELETE_SQL     = Symbol('delete_sql');
 const VALIDATE       = Symbol('validate');
 const CLIENT         = Symbol('client');
+
+/* ========================================================================== */
+
+// Merge a couple of objects
+function merge(one, two) {
+  if (!util.isObject(one)) throw new Error('First object to merge not an object');
+  if (!util.isObject(two)) throw new Error('Second object to merge not an object');
+
+  var result = {};
+
+  // Copy keys from first object
+  Object.keys(one).forEach(function(key) {
+    result[key] = one[key];
+  });
+
+  // Deep merge or override from second
+  Object.keys(two).forEach(function(key) {
+    if (util.isObject(result[key]) && util.isObject(two[key])) {
+      result[key] = merge(result[key], two[key]);
+    } else {
+      result[key] = two[key];
+    }
+  })
+
+  // Wipe out all null and empty string results
+  Object.keys(result).forEach(function(key) {
+    var value = result[key];
+    if ((value == null) || (util.isString(value) && value.match(/^\s+$/)))
+      delete result[key];
+  });
+
+  // Done!
+  return result;
+}
 
 /* ========================================================================== *
  * DB OBJECT CLASS                                                            *
@@ -58,7 +91,7 @@ class DbObject {
  * ========================================================================== */
 
 class DbStore {
-  constructor(tableName, keyManager, client, validator) {
+  constructor(tableName, keyManager, client, schema) {
 
     // Validate table name and key manager
     if (!util.isString(tableName)) throw new Error('Table name must be a string');
@@ -68,19 +101,17 @@ class DbStore {
     // Access to our database (RO/RW)
     if (!(client instanceof DbClient)) throw new Error('Database client not specified or invalid');
 
-    // Check validator
+    // Check schema
     var validate;
-    if (! validator) validate = function(object) { return object };
-    else if (validator instanceof Validator) validate = validator.validate.bind(validator);
-    else if (typeof(validator) === 'function') validate = validator;
-    else if ((typeof(validator) === 'object') && (validator.isJOI === true)) {
+    if (! schema) validate = function(object) { return object };
+    else if (typeof(schema) === 'function') validate = schema;
+    else if ((typeof(schema) === 'object') && (schema.isJoi === true)) {
       validate = function(object) {
-        // TODO!!!!
-        var result = joi.validate(object, validator);
+        var result = joi.validate(object, schema, {abortEarly: false});
         if (result.error) throw result.error;
         return result.value;
       };
-    } else throw new Error('Validator must be a function or Validator instance');
+    } else throw new Error('Schema must be a validation function or Joi schema');
 
     /* ---------------------------------------------------------------------- *
      * Remember our instance variables                                        *
@@ -182,7 +213,7 @@ class DbStore {
     });
 
     return new Promise(function (resolve, reject) {
-      resolve(self[KEY_MANAGER].encrypt(self[VALIDATE](Validator.merge({}, attributes)))
+      resolve(self[KEY_MANAGER].encrypt(self[VALIDATE](merge({}, attributes)))
         .then(function(encrypted) {
           return query(self[INSERT_SQL], parent, encrypted.key, encrypted.data)
             .then(function(result) {
@@ -211,7 +242,7 @@ class DbStore {
         // Resolve (decrypt) old attributes, merge, validate then encrypt...
         return result.attributes()
           .then(function(old_attr) {
-            return self[KEY_MANAGER].encrypt(self[VALIDATE](Validator.merge(old_attr, attributes)))
+            return self[KEY_MANAGER].encrypt(self[VALIDATE](merge(old_attr, attributes)))
           })
           .then(function(encrypted) {
             return query(self[UPDATE_SQL], uuid, encrypted.key, encrypted.data)

@@ -1,8 +1,9 @@
 'use strict';
 
 const expect = require('chai').expect;
+const joi = require('joi');
+
 const KeyManager = require('../src/key-manager');
-const Validator = require('../src/validator');
 const DbStore = require('../src/db-store');
 
 describe('Database Store', function() {
@@ -25,8 +26,11 @@ describe('Database Store', function() {
   before(function() {
     var masterKey = new Buffer(32).fill(0);
     var keyManager = new KeyManager(masterKey, testdb.client);
+    var validator = joi.object({
+      invalid_key: joi.any().forbidden()
+    }).unknown(true);
 
-    var validator = new Validator({ invalid_key: { type: 'null' }});
+    //var validator = new Validator({ invalid_key: { type: 'null' }});
 
     store = new DbStore('test_store', keyManager, testdb.client, validator);
   })
@@ -55,12 +59,10 @@ describe('Database Store', function() {
       .then(function(created) {
         throw new Error('Created, but it should have not!')
       }, function(error) {
-        expect(error).to.be.instanceof(Validator.ValidationError);
-        expect(error.message).to.equal('Object failed to validate');
-        expect(error.object).to.eql({ invalid_key: true });
-        expect(error.validation).to.eql({
-          invalid_key: [ 'Invalid key must be null or undefined' ]
-        });
+        expect(error).to.be.instanceof(Error);
+        expect(error.details).to.be.instanceof(Array);
+        expect(error.details[0].message).to.equal('"invalid_key" is not allowed');
+        expect(error.details[0].path).to.equal('invalid_key');
         done();
       })
       .catch(done);
@@ -147,16 +149,14 @@ describe('Database Store', function() {
       .then(function(modified) {
         throw new Error('Object was invalid, but modified');
       }, function(error) {
-        expect(error).to.be.instanceof(Validator.ValidationError);
-        expect(error.message).to.equal('Object failed to validate');
-        expect(error.validation).to.eql({
-          invalid_key: [ 'Invalid key must be null or undefined' ]
-        });
+        expect(error).to.be.instanceof(Error);
+        expect(error.details).to.be.instanceof(Array);
+        expect(error.details[0].message).to.equal('"invalid_key" is not allowed');
+        expect(error.details[0].path).to.equal('invalid_key');
 
-        // Check that by removing invalid key, we equal attributes3
-        expect(error.object.invalid_key).to.be_true;
-        delete error.object.invalid_key;
-        expect(error.object).to.eql(attributes3)
+        expect(error._object.invalid_key).to.be_true;
+        delete error._object.invalid_key;
+        expect(error._object).to.eql(attributes3);
 
         // Just triple check...
         return store.select(value.uuid);

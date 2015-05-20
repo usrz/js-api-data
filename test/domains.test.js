@@ -28,10 +28,10 @@ describe('Domains', function() {
         .then(function(domain) {
           throw new Error('It should not have been created');
         }, function(error) {
-          expect(error.validation).to.eql({
-            name: [ "Name can't be blank" ],
-            domain_name: [ "Domain name can't be blank" ]
-          });
+          expect(error.details[0].message).to.equal('"name" is required');
+          expect(error.details[0].path).to.equal('name');
+          expect(error.details[1].message).to.equal('"domain_name" is required');
+          expect(error.details[1].path).to.equal('domain_name');
           done();
         })
         .catch(done);
@@ -42,10 +42,10 @@ describe('Domains', function() {
         .then(function(domain) {
           throw new Error('It should not have been created');
         }, function(error) {
-          expect(error.validation).to.eql({
-            name: [ "Name must be a string" ],
-            domain_name: [ "Domain name is not a valid domain name" ]
-          });
+          expect(error.details[0].message).to.equal('"name" must be a string');
+          expect(error.details[0].path).to.equal('name');
+          expect(error.details[1].message).to.match(/"domain_name" with value "phony" fails to match/);
+          expect(error.details[1].path).to.equal('domain_name');
           done();
         })
         .catch(done);
@@ -92,9 +92,8 @@ describe('Domains', function() {
         .then(function(modified) {
           throw new Error("Domain was modified");
         }, function(error) {
-          expect(error.validation).to.eql({
-            domain_name: [ "Domain name is not a valid domain name" ]
-          });
+          expect(error.details[0].message).to.match(/"domain_name" with value "phony" fails to match/);
+          expect(error.details[0].path).to.equal('domain_name');
 
           // Triple check
           return domains.get(domain.uuid);

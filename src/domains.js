@@ -1,21 +1,13 @@
 'use strict';
 
 const DbStore = require('./db-store');
-const Validator = require('./validator');
-
 const nil = require('./uuid').NULL.toString();
+const joi = require('joi');
 
-var validator = new Validator({
-  name: {
-    presence: true,
-    normalize: true,
-    type: 'string'
-  },
-  domain_name: {
-    presence: true,
-    domain: true
-  }
-})
+const validator = joi.object({
+    name: joi.string().required().replace(/\s+/g, ' ').trim().min(1).max(1024),
+    domain_name: joi.string().required().regex(/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i)
+});
 
 const STORE = Symbol('store');
 

@@ -10,8 +10,7 @@
     "express-errorlog": "1.0.4",
     "joi": "git+ssh://git@github.com/usrz/joi.git",
     "morgan": "^1.5.3",
-    "pg": "^4.3.0",
-    "validate.js": "^0.7.1"
+    "pg": "^4.3.0"
   },
   "devDependencies": {
     "blanket": "^1.1.7",

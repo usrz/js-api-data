@@ -44,10 +44,8 @@ describe('Users', function() {
       .then(function(created) {
         throw new Error('Nothing should have been created');
       }, function(error) {
-        expect(error.validation).to.eql({
-          email: [ "Email is not a valid email" ],
-          name: [ "Name must be a string" ]
-        });
+        expect(error.details[0].message).to.equal('"name" must be a string');
+        expect(error.details[0].path).to.equal('name');
         done();
       })
       .catch(done);

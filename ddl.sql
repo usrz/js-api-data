@@ -82,6 +82,11 @@ CREATE TABLE "encrypted_objects" (
 );
 
 -- Index tables base
+--
+-- scope      -> the key that groups all hashed values together (eg. domain)
+-- owner      -> owner of the indexed value (eg. a user in the scoped domain)
+-- value      -> UUIDv5 (hashed) from the scope UUID and "key:value" (string)
+-- indexed_at -> when the value was indexed.
 
 CREATE TABLE "encrypted_indexes" (
   "scope"      UUID                     NOT NULL,
@@ -118,12 +123,16 @@ BEGIN
 END;
 $$ LANGUAGE 'plpgsql';
 
--- Rules from inherited tables are not executed, for deletions use a trigger!
+-- Deletions with triggers. Basically, we use this because when the trigger is
+-- added to an inherited table, deletions from the parents will still be
+-- processed and marked as soft deletes
 
 CREATE FUNCTION "fn_delete_trigger" () RETURNS TRIGGER AS $$
 BEGIN
-  --RAISE EXCEPTION 'Preventing "%" on "%"', TG_OP, TG_TABLE_NAME;
-  EXECUTE 'UPDATE "' || quote_ident(TG_TABLE_NAME) || '" SET "deleted_at" = NOW() WHERE uuid = $1' USING OLD.uuid;
+  EXECUTE 'UPDATE "'                 ||
+          quote_ident(TG_TABLE_NAME) ||
+          '" SET "deleted_at" = NOW() WHERE uuid = $1'
+    USING OLD.uuid;
   RETURN NULL;
 END;
 $$ LANGUAGE 'plpgsql';
@@ -136,16 +145,15 @@ BEGIN
 END;
 $$ LANGUAGE 'plpgsql';
 
--- Do not allow INSERT directly on "encrypted_objects"
-CREATE TRIGGER "encrypted_objects_no_insert" BEFORE INSERT
+-- Do not allow INSERT/UPDATE/DELETE directly on "encrypted_objects"
+CREATE TRIGGER "encrypted_objects_no_insert" BEFORE INSERT OR UPDATE OR DELETE
   ON "encrypted_objects" FOR EACH ROW EXECUTE PROCEDURE "fn_prevent_trigger" ();
-
--- Now, a "DELETE" on the parent table will delete values in the children ones
--- as RULEs are not processed... But triggers are :-)
 
 
 -- * ========================================================================= *
--- * DOMAINS                                                                   *
+-- | * ===================================================================== * |
+-- | | DOMAINS (THE ROOT OF ALL EVIL)                                        | |
+-- | * ===================================================================== * |
 -- * ========================================================================= *
 
 CREATE TABLE "domains" () INHERITS ("encrypted_objects");
@@ -179,6 +187,32 @@ CREATE TRIGGER "domains_update" BEFORE UPDATE ON "domains"
   FOR EACH ROW EXECUTE PROCEDURE "fn_update_trigger" ();
 CREATE TRIGGER "domains_delete" BEFORE DELETE ON "domains"
   FOR EACH ROW EXECUTE PROCEDURE "fn_delete_trigger" ();
+
+
+-- * ========================================================================= *
+-- | * ===================================================================== * |
+-- | | POSIX OBJECTS (USERS AND GROUPS)                                     | |
+-- | * ===================================================================== * |
+-- * ========================================================================= *
+
+CREATE TABLE "posix_objects" () INHERITS ("encrypted_objects");
+
+-- Index our domains
+CREATE INDEX "posix_objects_parent_idx" ON "users" ("parent");
+
+-- Constraints
+ALTER TABLE "posix_objects"
+  ADD CONSTRAINT "posix_objects_pkey"
+      PRIMARY KEY ("uuid"),
+  ADD CONSTRAINT "posix_objects_domains_uuid_fkey"
+      FOREIGN KEY ("parent") REFERENCES "domains" ("uuid"),
+  ADD CONSTRAINT "posix_objects_encryption_keys_uuid_fkey"
+      FOREIGN KEY ("encryption_key") REFERENCES "encryption_keys" ("uuid");
+
+-- Do not allow INSERT/UPDATE/DELETE directly on "posix_objects"
+CREATE TRIGGER "encrypted_objects_no_insert" BEFORE INSERT OR UPDATE OR DELETE
+  ON "encrypted_objects" FOR EACH ROW EXECUTE PROCEDURE "fn_prevent_trigger" ();
+
 
 -- * ========================================================================= *
 -- * USERS                                                                     *

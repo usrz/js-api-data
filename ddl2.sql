@@ -43,7 +43,9 @@ CREATE TRIGGER "kinds_hierarchy_protect" BEFORE INSERT OR UPDATE OR DELETE ON "k
 
 
 -- * ========================================================================= *
--- * ENCRYPTION KEYS                                                           *
+-- | * ===================================================================== * |
+-- | | ENCRYPTION KEYS                                                       | |
+-- | * ===================================================================== * |
 -- * ========================================================================= *
 
 -- We keep a number of encryption keys around, so that we can periodically
@@ -104,7 +106,6 @@ CREATE RULE "encryption_keys_delete" AS ON DELETE TO "encryption_keys" DO INSTEA
 -- | * ===================================================================== * |
 -- * ========================================================================= *
 
--- =============================================================================
 -- This is the basic objects table, containing all the encrypted JSONs
 --
 -- * uuid           -> basic UUID of the object (primary key)
@@ -151,7 +152,7 @@ BEGIN
   ELSIF (NEW.parent = NEW.uuid) THEN
     RAISE EXCEPTION 'Object of kind "%" must not have self as a parent', NEW.kind;
 
-  -- Else check the parent kind is hierarchically valid
+  -- Otherwise check the parent kind is hierarchically valid
   ELSE
     PERFORM TRUE FROM objects, kinds_hierarchy
                 WHERE objects.uuid = NEW.parent
@@ -242,10 +243,39 @@ CREATE VIEW available_objects AS
 
 
 
+-- * ========================================================================= *
+-- | * ===================================================================== * |
+-- | | INDEX TABLES                                                          | |
+-- | * ===================================================================== * |
+-- * ========================================================================= *
 
+-- Search base table, holding attribute values for each owner
+--
+-- scope      -> the key that groups all hashed values together (eg. domain)
+-- owner      -> owner of the indexed value (eg. a user in the scoped domain)
+-- value      -> UUIDv5 (hashed) from the scope UUID and "key:value" (string)
+-- indexed_at -> when the value was indexed.
+--
+CREATE TABLE "objects_search" (
+  "scope"      UUID                     NOT NULL,
+  "owner"      UUID                     NOT NULL,
+  "value"      UUID                     NOT NULL,
+  "indexed_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
 
+  -- Foreign key references
+  FOREIGN KEY ("scope") REFERENCES "objects" ("uuid") ON DELETE CASCADE,
+  FOREIGN KEY ("owner") REFERENCES "objects" ("uuid") ON DELETE CASCADE
+);
 
+-- Index table, like search but not allowing duplicate values in each scope
+--
+CREATE TABLE "objects_index" (
+  LIKE "objects_search" INCLUDING CONSTRAINTS INCLUDING INDEXES,
 
+  -- Foreign key references (those are not copied with LIKE)
+  FOREIGN KEY ("scope") REFERENCES "objects" ("uuid") ON DELETE CASCADE,
+  FOREIGN KEY ("owner") REFERENCES "objects" ("uuid") ON DELETE CASCADE,
 
-
-
+  -- Unique constraint for scope -> value
+  UNIQUE (scope, value)
+);

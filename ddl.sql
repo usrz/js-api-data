@@ -30,7 +30,7 @@ CREATE VIEW objects_all AS
   SELECT uuid, parent, NULL AS deleted_at FROM objects UNION
   SELECT uuid, parent, deleted_at FROM objects_deleted;
 
-
+-- Remember TODO -> NULL checks in UPDATE triggers
 
 
 
@@ -90,6 +90,7 @@ ALTER TABLE "encryption_keys"
 CREATE FUNCTION "fn_encryption_keys_update_trigger" () RETURNS TRIGGER AS $$
 BEGIN
   -- Raise exception if attempting to update anything
+  -- TODO TODO nulls?
   IF (OLD.uuid          != NEW.uuid)          OR
      (OLD.encrypted_key != NEW.encrypted_key) OR
      (OLD.created_at    != NEW.created_at)

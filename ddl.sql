@@ -5,6 +5,68 @@
 -- Load our extensions
 CREATE EXTENSION "uuid-ossp";
 
+
+
+
+
+
+
+-- CREATE  RULE "domains_deleted" AS ON DELETE TO "domains" DO INSERT INTO "domains_deleted" SELECT OLD.*;
+-- CREATE TABLE objects_deleted AS SELECT * FROM objects WITH NO DATA;
+-- CREATE RULE "objects_delete" AS ON DELETE TO "objects" DO  INSERT INTO objects_deleted (uuid, parent, deleted_at) SELECT old.uuid, old.parent, NOW();
+
+CREATE FUNCTION "nodelete" () RETURNS TRIGGER AS $$
+BEGIN
+  IF OLD.uuid = uuid_nil() THEN
+    RAISE EXCEPTION 'Attempting to delete root';
+  END IF;
+  INSERT INTO objects_deleted (uuid, parent, deleted_at)
+       VALUES (OLD.uuid, OLD.parent, NOW());
+  RETURN OLD;
+END;
+$$ LANGUAGE 'plpgsql';
+CREATE TRIGGER "nodelete" BEFORE DELETE ON "objects" FOR EACH ROW EXECUTE PROCEDURE "nodelete"();
+CREATE VIEW objects_all AS
+  SELECT uuid, parent, NULL AS deleted_at FROM objects UNION
+  SELECT uuid, parent, deleted_at FROM objects_deleted;
+
+
+
+
+
+
+
+
+
+
+
+-- * ========================================================================= *
+-- * TRIGGER FUNCTIONS                                                         *
+-- * ========================================================================= *
+
+-- A simple trigger preventing whatever it's associated to...
+
+CREATE FUNCTION "fn_prevent_trigger" () RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION 'Preventing "%" on "%"', TG_OP, TG_TABLE_NAME;
+END;
+$$ LANGUAGE 'plpgsql';
+
+-- Deletions with triggers. Basically, we use this because when the trigger is
+-- added to an inherited table, deletions from the parents will still be
+-- processed and marked as soft deletes
+
+CREATE FUNCTION "fn_delete_trigger" () RETURNS TRIGGER AS $$
+BEGIN
+  EXECUTE 'UPDATE "'                 ||
+          quote_ident(TG_TABLE_NAME) ||
+          '" SET "deleted_at" = NOW() WHERE uuid = $1'
+    USING OLD.uuid;
+  RETURN NULL;
+END;
+$$ LANGUAGE 'plpgsql';
+
+
 -- * ========================================================================= *
 -- * ENCRYPTION KEYS                                                           *
 -- * ========================================================================= *
@@ -15,7 +77,7 @@ CREATE EXTENSION "uuid-ossp";
 
 CREATE TABLE "encryption_keys" (
   "uuid"          UUID                     NOT NULL DEFAULT uuid_generate_v4(),
-  "encrypted_key" BYTEA                    NOT NULL,
+  "encrypted_key" BYTEA                    , --NOT NULL,
   "created_at"    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   "deleted_at"    TIMESTAMP WITH TIME ZONE          DEFAULT NULL
 );
@@ -62,6 +124,7 @@ CREATE RULE "encryption_keys_delete" AS ON DELETE TO "encryption_keys" DO INSTEA
 -- | * ===================================================================== * |
 -- * ========================================================================= *
 
+-- =============================================================================
 -- Every data table has the same structure:
 --
 -- uuid           -> primary key
@@ -81,7 +144,15 @@ CREATE TABLE "encrypted_objects" (
   "deleted_at"     TIMESTAMP WITH TIME ZONE          DEFAULT NULL
 );
 
--- Index tables base
+-- Constraints, do we need those?
+ALTER TABLE "encrypted_objects"
+  ADD CONSTRAINT "pencrypted_objects_pkey"
+      PRIMARY KEY ("uuid"),
+  ADD CONSTRAINT "encrypted_objects_encryption_keys_uuid_fkey"
+      FOREIGN KEY ("encryption_key") REFERENCES "encryption_keys" ("uuid");
+
+-- =============================================================================
+-- Index tables base table
 --
 -- scope      -> the key that groups all hashed values together (eg. domain)
 -- owner      -> owner of the indexed value (eg. a user in the scoped domain)
@@ -95,6 +166,7 @@ CREATE TABLE "encrypted_indexes" (
   "indexed_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
+-- =============================================================================
 -- We want to protect against updates to "uuid" and "created_at" in order to
 -- protect data consistency, then "updated_at" gets updated to "NOW()"
 --
@@ -145,9 +217,13 @@ BEGIN
 END;
 $$ LANGUAGE 'plpgsql';
 
--- Do not allow INSERT/UPDATE/DELETE directly on "encrypted_objects"
-CREATE TRIGGER "encrypted_objects_no_insert" BEFORE INSERT OR UPDATE OR DELETE
+-- =============================================================================
+-- Do not allow INSERT/UPDATE/DELETE directly on "encrypted_objects/indexes"
+
+CREATE TRIGGER "encrypted_objects_read_only" BEFORE INSERT OR UPDATE OR DELETE
   ON "encrypted_objects" FOR EACH ROW EXECUTE PROCEDURE "fn_prevent_trigger" ();
+CREATE TRIGGER "encrypted_indexes_read_only" BEFORE INSERT OR UPDATE OR DELETE
+  ON "encrypted_indexes" FOR EACH ROW EXECUTE PROCEDURE "fn_prevent_trigger" ();
 
 
 -- * ========================================================================= *
@@ -198,9 +274,9 @@ CREATE TRIGGER "domains_delete" BEFORE DELETE ON "domains"
 CREATE TABLE "posix_objects" () INHERITS ("encrypted_objects");
 
 -- Index our domains
-CREATE INDEX "posix_objects_parent_idx" ON "users" ("parent");
+CREATE INDEX "posix_objects_parent_idx" ON "posix_objects" ("parent");
 
--- Constraints
+-- Constraints, do we need those?
 ALTER TABLE "posix_objects"
   ADD CONSTRAINT "posix_objects_pkey"
       PRIMARY KEY ("uuid"),
@@ -210,9 +286,40 @@ ALTER TABLE "posix_objects"
       FOREIGN KEY ("encryption_key") REFERENCES "encryption_keys" ("uuid");
 
 -- Do not allow INSERT/UPDATE/DELETE directly on "posix_objects"
-CREATE TRIGGER "encrypted_objects_no_insert" BEFORE INSERT OR UPDATE OR DELETE
-  ON "encrypted_objects" FOR EACH ROW EXECUTE PROCEDURE "fn_prevent_trigger" ();
+CREATE TRIGGER "posix_objects_read_only" BEFORE INSERT OR UPDATE OR DELETE
+  ON "posix_objects" FOR EACH ROW EXECUTE PROCEDURE "fn_prevent_trigger" ();
 
+-- =============================================================================
+
+CREATE TABLE "posix_index" () INHERITS ("encrypted_indexes");
+
+-- Index our scopes and owners
+CREATE INDEX "posix_index_scope_idx" ON "posix_index" ("scope");
+CREATE INDEX "posix_index_owner_idx" ON "posix_index" ("owner");
+
+-- "Foreign key" on either "users" or "groups"
+CREATE FUNCTION posix_index_check_owner(uuid) RETURNS boolean AS $$
+BEGIN
+  PERFORM * FROM users WHERE uuid = $1;
+  IF NOT FOUND THEN
+    PERFORM * FROM domains WHERE uuid = $1;
+  END IF;
+  RETURN FOUND;
+END;
+$$ LANGUAGE 'plpgsql';
+
+-- Constraints
+ALTER TABLE "posix_index"
+  ADD CONSTRAINT "posix_index_pkey"
+      PRIMARY KEY ("value"),
+  ADD CONSTRAINT "posix_index_domains_fkey"
+      FOREIGN KEY ("scope") REFERENCES "domains" ("uuid"),
+  ADD CONSTRAINT "posix_index_owner_check"
+      CHECK (posix_index_check_owner(owner));
+
+-- Protect against updates
+CREATE TRIGGER "posix_index_update" BEFORE UPDATE ON "posix_index"
+  FOR EACH ROW EXECUTE PROCEDURE "fn_prevent_trigger" ();
 
 -- * ========================================================================= *
 -- * USERS                                                                     *
@@ -263,32 +370,3 @@ CREATE TRIGGER "users_index_update" BEFORE UPDATE ON "users_index"
 -- * POSIX ATTRIBUTES INDEX
 -- * ========================================================================= *
 
-CREATE TABLE "posix_index" () INHERITS ("encrypted_indexes");
-
--- Index our scopes and owners
-CREATE INDEX "posix_index_scope_idx" ON "posix_index" ("scope");
-CREATE INDEX "posix_index_owner_idx" ON "posix_index" ("owner");
-
--- "Foreign key" on either "users" or "groups"
-CREATE FUNCTION posix_index_check_owner(uuid) RETURNS boolean AS $$
-BEGIN
-  PERFORM * FROM users WHERE uuid = $1;
-  IF NOT FOUND THEN
-    PERFORM * FROM domains WHERE uuid = $1;
-  END IF;
-  RETURN FOUND;
-END;
-$$ LANGUAGE 'plpgsql';
-
--- Constraints
-ALTER TABLE "posix_index"
-  ADD CONSTRAINT "posix_index_pkey"
-      PRIMARY KEY ("value"),
-  ADD CONSTRAINT "posix_index_domains_fkey"
-      FOREIGN KEY ("scope") REFERENCES "domains" ("uuid"),
-  ADD CONSTRAINT "posix_index_owner_check"
-      CHECK (posix_index_check_owner(owner));
-
--- Protect against updates
-CREATE TRIGGER "posix_index_update" BEFORE UPDATE ON "posix_index"
-  FOR EACH ROW EXECUTE PROCEDURE "fn_prevent_trigger" ();

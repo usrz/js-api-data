@@ -8,11 +8,9 @@ const DbStore = require('../src/db-store');
 
 describe('Database Store', function() {
 
-  var file1 = require('path').resolve(__dirname, '../ddl2.sql');
-  var file2 = require('path').resolve(__dirname, './ddl/db-store.test.sql');
-  var ddl1 = require('fs').readFileSync(file1).toString('utf8');
-  var ddl2 = require('fs').readFileSync(file2).toString('utf8');
-  var testdb = require('./testdb')(ddl1 + "\n" + ddl2);
+  var file = require('path').resolve(__dirname, '../ddl2.sql');
+  var ddl = require('fs').readFileSync(file).toString('utf8');
+  var testdb = require('./testdb')(ddl);
   var parent = null;
   var store = null;
   var value = null;

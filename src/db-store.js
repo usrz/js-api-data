@@ -11,10 +11,6 @@ const joi = require('joi');
 const ENCRYPTION_KEY = Symbol('encryption_key');
 const ENCRYPTED_DATA = Symbol('encrypted_data');
 const KEY_MANAGER    = Symbol('key_manager');
-const SELECT_SQL     = Symbol('select_sql');
-const PARENT_SQL     = Symbol('parent_sql');
-const INSERT_SQL     = Symbol('insert_sql');
-const UPDATE_SQL     = Symbol('update_sql');
 const DELETE_SQL     = Symbol('delete_sql');
 const VALIDATE       = Symbol('validate');
 const CLIENT         = Symbol('client');
@@ -53,6 +49,15 @@ function merge(one, two) {
   return result;
 }
 
+// Get the UUID string from a DBObject, string, or UUID
+function validate(what) {
+  if (! what) return null;
+  if (what instanceof DbObject) return what.uuid;
+  if (what instanceof UUID) return uuid.toString();
+  if (util.isString(what)) return UUID.validate(what);
+  return null;
+}
+
 /* ========================================================================== *
  * DB OBJECT CLASS                                                            *
  * ========================================================================== */
@@ -64,6 +69,7 @@ class DbObject {
     if (! row.parent) throw new Error('No parent UUID for DB object');
 
     this.uuid = row.uuid;
+    this.kind = row.kind;
     this.parent = row.parent;
     this.created_at = row.created_at || null;
     this.updated_at = row.updated_at || null;
@@ -84,18 +90,23 @@ class DbObject {
 
     return Promise.resolve(this.foo);
   }
+
+  toString() {
+    return 'DbObject[' + this.kind + ':' + this.uuid + ']';
+  }
 }
 
 /* ========================================================================== *
  * DB STORE CLASS                                                             *
  * ========================================================================== */
 
-class DbStore {
-  constructor(tableName, keyManager, client, schema) {
+const HACK = 'domain';
 
-    // Validate table name and key manager
-    if (!util.isString(tableName)) throw new Error('Table name must be a string');
-    if (!tableName.match(/^\w+$/)) throw new Error(`Invalid table name ${tableName}`);
+class DbStore {
+  constructor(keyManager, client, schema) {
+    var kind = "domain"; // TODO
+
+    // Validate key manager
     if (!(keyManager instanceof KeyManager)) throw new Error('Invalid key manager');
 
     // Access to our database (RO/RW)
@@ -118,11 +129,7 @@ class DbStore {
      * ---------------------------------------------------------------------- */
 
     this[KEY_MANAGER] = keyManager;
-    this[SELECT_SQL] = `SELECT * FROM "${tableName}" WHERE "uuid" = $1::uuid`;
-    this[PARENT_SQL] = `SELECT * FROM "${tableName}" WHERE "parent" = $1::uuid`;
-    this[INSERT_SQL] = `INSERT INTO "${tableName}" ("parent", "encryption_key", "encrypted_data") VALUES ($1::uuid, $2::uuid, $3::bytea) RETURNING *`;
-    this[UPDATE_SQL] = `UPDATE "${tableName}" SET "encryption_key" = $2::uuid, "encrypted_data" = $3::bytea WHERE "uuid" = $1::uuid RETURNING *`;
-    this[DELETE_SQL] = `UPDATE "${tableName}" SET "deleted_at" = NOW() WHERE "uuid" = $1::uuid RETURNING *`;
+    this[DELETE_SQL] = 'UPDATE "objects" SET "deleted_at" = NOW() WHERE "uuid" = $1::uuid RETURNING *';
     this[VALIDATE] = validate;
     this[CLIENT] = client;
 
@@ -132,29 +139,47 @@ class DbStore {
    * Select a single record out of the DB                                     *
    * ------------------------------------------------------------------------ */
 
-  select(uuid, include_deleted, query) {
+  select(uuid, kind, include_deleted, query) {
     var self = this;
 
-    // Check for optional "include_deleted"
-    if (typeof(include_deleted) === 'function') {
+    // Null for invalid UUIDs
+    uuid = validate(uuid);
+    if (! uuid) return Promise.resolve(null);
+
+    // Check for optional parameters
+    if (util.isFunction(kind)) {
+      query = kind;
+      include_deleted = false;
+      kind = null;
+    } else if (util.isBoolean(kind)) {
+      query = include_deleted;
+      include_deleted = kind;
+      kind = null;
+    } else if (util.isFunction(include_deleted)) {
       query = include_deleted;
       include_deleted = false;
     }
 
-    // Null for invalid UUIDs
-    uuid = UUID.validate(uuid);
-    if (! uuid) return Promise.resolve(null);
-
     // No query? Connect for "SELECT" (no updates)
     if (! query) return self[CLIENT].read(function(query) {
-      return self.select(uuid, include_deleted, query);
+      return self.select(uuid, kind, include_deleted, query);
     });
 
-    // Execute our SQL
-    var sql = self[SELECT_SQL];
-    if (! include_deleted) sql += ' AND deleted_at IS NULL';
+    // Our basic SQL
+    var sql = 'SELECT * FROM "'
+            + (include_deleted ? 'available_objects' : 'objects' )
+            + '" WHERE "uuid" = $1::uuid';
+    var args = [ uuid ];
 
-    return query(sql, uuid)
+    // Optional kind
+    if (kind != null) {
+      sql += ' AND "kind" = $2::kind';
+      args.push(kind);
+    }
+
+    // Insert the SQL and invoke
+    args.unshift(sql);
+    return query.apply(null, args)
       .then(function(result) {
         if ((! result) || (! result.rows) || (! result.rows[0])) return null;
         return new DbObject(result.rows[0], self[KEY_MANAGER]);
@@ -165,27 +190,47 @@ class DbStore {
    * Find all records having the specified parent                             *
    * ------------------------------------------------------------------------ */
 
-  parent(uuid, include_deleted, query) {
+  parent(parent, kind, include_deleted, query) {
     var self = this;
 
     // Null for invalid UUIDs
-    uuid = UUID.validate(uuid);
-    if (! uuid) return Promise.resolve(null);
+    parent = validate(parent);
+    if (! parent) return Promise.resolve({});
 
     // Check for optional parameters
-    if (typeof(include_deleted) === 'function') {
+    if (util.isFunction(kind)) {
+      query = kind;
+      include_deleted = false;
+      kind = null;
+    } else if (util.isBoolean(kind)) {
+      query = include_deleted;
+      include_deleted = kind;
+      kind = null;
+    } else if (util.isFunction(include_deleted)) {
       query = include_deleted;
       include_deleted = false;
     }
 
+    // No query? Connect for "SELECT" (no updates)
     if (! query) return self[CLIENT].read(function(query) {
-      return self.parent(uuid, include_deleted, query);
+      return self.parent(parent, kind, include_deleted, query);
     });
 
-    var sql = self[PARENT_SQL];
-    if (! include_deleted) sql += ' AND deleted_at IS NULL';
+    // Our basic SQL
+    var sql = 'SELECT * FROM "'
+            + (include_deleted ? 'available_objects' : 'objects' )
+            + '" WHERE "parent" = $1::uuid';
+    var args = [ parent ];
 
-    return query(sql, uuid)
+    // Optional kind
+    if (kind != null) {
+      sql += ' AND "kind" = $2::kind';
+      args.push(kind);
+    }
+
+    // Insert the SQL and invoke
+    args.unshift(sql);
+    return query.apply(null, args)
       .then(function(result) {
         if ((! result) || (! result.rows) || (! result.rows[0])) return {};
         var objects = {};
@@ -201,21 +246,32 @@ class DbStore {
    * Insert a new record in the DB                                            *
    * ------------------------------------------------------------------------ */
 
-  insert(parent, attributes, query) {
+  insert(kind, parent, attributes, query) {
     var self = this;
 
-    // Null for invalid UUIDs
-    parent = UUID.validate(parent);
-    if (! parent) return Promise.resolve(null);
-
     if (! query) return self[CLIENT].write(function(query) {
-      return self.insert(parent, attributes, query);
+      return self.insert(kind, parent, attributes, query);
     });
 
     return new Promise(function (resolve, reject) {
       resolve(self[KEY_MANAGER].encrypt(self[VALIDATE](merge({}, attributes)))
         .then(function(encrypted) {
-          return query(self[INSERT_SQL], parent, encrypted.key, encrypted.data)
+
+          var sql = 'INSERT INTO "objects" '
+                  + '("kind", "parent", "encryption_key", "encrypted_data") VALUES'
+                  + '($1::kind, $2::uuid, $3::uuid, $4::bytea) RETURNING *';
+
+          // Validate parent UUID
+          var uuid = parent;
+          if (uuid != null) {
+            uuid = validate(parent);
+            if (uuid == null) {
+              throw new Error('Invalid parent "' + parent + "'");
+            }
+          }
+
+          // Call the DB
+          return query(sql, kind, uuid, encrypted.key, encrypted.data)
             .then(function(result) {
               if ((! result) || (! result.rows) || (! result.rows[0])) return null;
               return new DbObject(result.rows[0], self[KEY_MANAGER]);
@@ -245,7 +301,13 @@ class DbStore {
             return self[KEY_MANAGER].encrypt(self[VALIDATE](merge(old_attr, attributes)))
           })
           .then(function(encrypted) {
-            return query(self[UPDATE_SQL], uuid, encrypted.key, encrypted.data)
+
+            var sql = 'UPDATE "objects" SET '
+                    + '"encryption_key" = $2::uuid, '
+                    + '"encrypted_data" = $3::bytea '
+                    + 'WHERE "uuid" = $1::uuid RETURNING *';
+
+            return query(sql, uuid, encrypted.key, encrypted.data)
               .then(function(result) {
                 if ((! result) || (! result.rows) || (! result.rows[0])) return null;
                 return new DbObject(result.rows[0], self[KEY_MANAGER]);
@@ -261,17 +323,16 @@ class DbStore {
     var self = this;
 
     // Null for invalid UUIDs
-    uuid = UUID.validate(uuid);
+    uuid = validate(uuid);
     if (! uuid) return Promise.resolve(null);
 
     if (! query) return self[CLIENT].write(function(query) {
       return self.delete(uuid, query);
     });
 
-    return query(self[DELETE_SQL], uuid)
+    return query('DELETE FROM "objects" WHERE "uuid" = $1::uuid', uuid)
       .then(function(result) {
-        if ((! result) || (! result.rows) || (! result.rows[0])) return null;
-        return new DbObject(result.rows[0], self[KEY_MANAGER]);
+        return self.select(uuid, null, true, query);
       });
   }
 }

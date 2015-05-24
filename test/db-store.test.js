@@ -8,12 +8,12 @@ const DbStore = require('../src/db-store');
 
 describe('Database Store', function() {
 
-  const parent = '00000000-0000-0000-0000-000000000000';
-  var file1 = require('path').resolve(__dirname, '../ddl.sql');
+  var file1 = require('path').resolve(__dirname, '../ddl2.sql');
   var file2 = require('path').resolve(__dirname, './ddl/db-store.test.sql');
   var ddl1 = require('fs').readFileSync(file1).toString('utf8');
   var ddl2 = require('fs').readFileSync(file2).toString('utf8');
   var testdb = require('./testdb')(ddl1 + "\n" + ddl2);
+  var parent = null;
   var store = null;
   var value = null;
   var vattr = null;
@@ -30,13 +30,13 @@ describe('Database Store', function() {
       invalid_key: joi.any().forbidden()
     }).unknown(true);
 
-    //var validator = new Validator({ invalid_key: { type: 'null' }});
-
-    store = new DbStore('test_store', keyManager, testdb.client, validator);
+    store = new DbStore(keyManager, testdb.client, validator);
   })
   after(testdb.after);
 
-  it('should not fetch an invalid uuid', function(done) {
+  /* ------------------------------------------------------------------------ */
+
+  it('should fetch null an invalid uuid', function(done) {
     store.select('mario')
       .then(function(value) {
         expect(value).to.be.null;
@@ -45,8 +45,8 @@ describe('Database Store', function() {
       .catch(done);
   })
 
-  it('should return null fetching an unknown value', function(done) {
-    store.select('78adc7c5-e021-4507-81c3-51ee579c4bb4')
+  it('should fetch null for an unknown value', function(done) {
+    store.select('78adc7c5-e021-f507-81c3-51ee579c4bb4') // version "f" :-)
       .then(function(value) {
         expect(value).to.be.null;
         done();
@@ -55,7 +55,7 @@ describe('Database Store', function() {
   })
 
   it('should not save an invalid value', function(done) {
-    store.insert(parent, { invalid_key: true })
+    store.insert('validate object first', parent, { invalid_key: true })
       .then(function(created) {
         throw new Error('Created, but it should have not!')
       }, function(error) {
@@ -68,12 +68,32 @@ describe('Database Store', function() {
       .catch(done);
   })
 
-  it('should save a new value', function(done) {
-    store.insert(parent, attributes1)
+  /* ------------------------------------------------------------------------ */
+
+  it('should insert a new domain (null parent)', function(done) {
+    store.insert('domain', null, {})
       .then(function(created) {
         expect(created).to.exist;
         expect(created.uuid).to.be.a('string');
-        expect(created.parent).to.equal(parent);
+        expect(created.kind).to.equal('domain');
+        expect(created.parent).to.equal(created.uuid);
+        expect(created.created_at).to.be.instanceof(Date);
+        expect(created.updated_at).to.be.instanceof(Date);
+        expect(created.created_at.getTime()).to.equal(created.updated_at.getTime());
+        expect(created.deleted_at).to.be.null;
+        parent = created;
+        done();
+      })
+      .catch(done);
+  });
+
+  it('should insert a new user (domain parent)', function(done) {
+    store.insert('user', parent, attributes1)
+      .then(function(created) {
+        expect(created).to.exist;
+        expect(created.uuid).to.be.a('string');
+        expect(created.kind).to.equal('user');
+        expect(created.parent).to.equal(parent.uuid);
         expect(created.created_at).to.be.instanceof(Date);
         expect(created.updated_at).to.be.instanceof(Date);
         expect(created.created_at.getTime()).to.equal(created.updated_at.getTime());
@@ -88,6 +108,9 @@ describe('Database Store', function() {
       })
       .catch(done);
   })
+
+  /* ------------------------------------------------------------------------ */
+
 
   it('should find our saved value', function(done) {
     if (! value) return this.skip();
@@ -184,8 +207,8 @@ describe('Database Store', function() {
         expect(deleted.updated_at).to.be.instanceof(Date);
         expect(deleted.deleted_at).to.be.instanceof(Date);
         expect(deleted.created_at.getTime()).to.equal(value.created_at.getTime());
-        expect(deleted.updated_at.getTime()).to.equal(deleted.deleted_at.getTime());
-        expect(deleted.created_at.getTime()).not.to.equal(deleted.updated_at.getTime());
+        expect(deleted.updated_at.getTime()).to.equal(value.updated_at.getTime());
+        expect(deleted.deleted_at.getTime()).not.to.equal(deleted.updated_at.getTime());
         return deleted.attributes()
           .then(function(attributes) {
             expect(attributes).to.eql(attributes3);

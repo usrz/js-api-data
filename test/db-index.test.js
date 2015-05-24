@@ -3,14 +3,14 @@
 const expect = require('chai').expect;
 const DbIndex = require('../src/db-index');
 
-describe('Database Index', function() {
+describe.skip('Database Index', function() {
 
   const scope1 = '125036e8-d182-41a4-ad65-2a06180e7fe0';
   const scope2 = '4656dada-b495-43e8-bdce-27f3aa2096e8';
   const scopeX = '838f81ba-a1d4-4302-b5f5-43d7ebecfda0';
   const owner1 = 'b2b3cbc4-dc28-464f-a087-20bead5daf2f';
   const owner2 = '387d0c2e-554c-4063-a4fe-f829bdb7e8f8';
-  var file1 = require('path').resolve(__dirname, '../ddl.sql');
+  var file1 = require('path').resolve(__dirname, '../ddl2.sql');
   var file2 = require('path').resolve(__dirname, './ddl/db-index.test.sql');
   var ddl1 = require('fs').readFileSync(file1).toString('utf8');
   var ddl2 = require('fs').readFileSync(file2).toString('utf8');

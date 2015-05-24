@@ -4,9 +4,9 @@ const expect = require('chai').expect;
 const KeyManager = require('../src/key-manager');
 const Domains = require('../src/domains');
 
-describe('Domains', function() {
+describe.skip('Domains', function() {
 
-  var file = require('path').resolve(__dirname, '../ddl.sql');
+  var file = require('path').resolve(__dirname, '../ddl2.sql');
   var ddl = require('fs').readFileSync(file).toString('utf8');
   var testdb = require('./testdb')(ddl);
   var domains = null;

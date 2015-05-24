@@ -6,7 +6,7 @@ const pg = require('pg');
 
 describe('Encryption Key Manager', function() {
 
-  var file = require('path').resolve(__dirname, '../ddl.sql');
+  var file = require('path').resolve(__dirname, '../ddl2.sql');
   var ddl = require('fs').readFileSync(file).toString('utf8');
   var testdb = require('./testdb')(ddl);
   var keyManager = null;

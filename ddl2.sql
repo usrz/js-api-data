@@ -159,7 +159,7 @@ BEGIN
                   AND objects.kind = kinds_hierarchy.parent
                   AND kinds_hierarchy.child = NEW.kind;
     IF NOT FOUND THEN
-      RAISE EXCEPTION 'Parent "%" can not have children of type "%"', NEW.parent, NEW.kind;
+      RAISE EXCEPTION 'Parent "%" can not have children of kind "%"', NEW.parent, NEW.kind;
     END IF;
   END IF;
 
@@ -238,9 +238,8 @@ CREATE RULE "objects_delete" AS ON DELETE TO "objects" DO ALSO
 -- Create a view able to return both normal AND deleted objects.
 --
 CREATE VIEW available_objects AS
-  SELECT uuid, parent, NULL AS deleted_at FROM objects UNION
-  SELECT uuid, parent, deleted_at FROM deleted_objects;
-
+  SELECT * FROM deleted_objects UNION
+  SELECT *, NULL AS deleted_at FROM objects;
 
 
 -- * ========================================================================= *

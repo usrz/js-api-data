@@ -5,7 +5,7 @@ const DbClient = require('../src/db-client');
 const url = "postgres://localhost/postgres";
 const UUID = require('../src/uuid');
 
-describe.only('Database Schema', function() {
+describe('Database Schema', function() {
 
   var file = require('path').resolve(__dirname, '../ddl2.sql');
   var ddl = require('fs').readFileSync(file).toString('utf8');
@@ -341,7 +341,7 @@ describe.only('Database Schema', function() {
         .then(function(result) {
           throw new Error('Should not work')
         }, function(error) {
-          expect(error.cause.message).to.equal('Parent "' + domain + '" can not have children of type "credentials"');
+          expect(error.cause.message).to.equal('Parent "' + domain + '" can not have children of kind "credentials"');
           done();
         })
         .catch(done);

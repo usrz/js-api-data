@@ -1,7 +1,6 @@
 'use strict';
 
 const DbStore = require('./db-store');
-const nil = require('./uuid').NULL.toString();
 const joi = require('joi');
 
 const validator = joi.object({
@@ -13,15 +12,15 @@ const STORE = Symbol('store');
 
 class Domains {
   constructor(keyManager, client) {
-    this[STORE] = new DbStore("domains", keyManager, client, validator);
+    this[STORE] = new DbStore(keyManager, client, validator);
   }
 
   get(uuid, include_deleted, query) {
-    return this[STORE].select(uuid, include_deleted, query);
+    return this[STORE].select(uuid, 'domain', include_deleted, query);
   }
 
   create(attributes, query) {
-    return this[STORE].insert(nil, attributes, query);
+    return this[STORE].insert('domain', null, attributes, query);
   }
 
   modify(uuid, attributes, query) {

@@ -269,7 +269,7 @@ CREATE TABLE "objects_search" (
 -- Index table, like search but not allowing duplicate values in each scope
 --
 CREATE TABLE "objects_index" (
-  LIKE "objects_search" INCLUDING CONSTRAINTS INCLUDING INDEXES,
+  LIKE "objects_search" INCLUDING CONSTRAINTS INCLUDING INDEXES INCLUDING DEFAULTS,
 
   -- Foreign key references (those are not copied with LIKE)
   FOREIGN KEY ("scope") REFERENCES "objects" ("uuid") ON DELETE CASCADE,

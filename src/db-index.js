@@ -32,27 +32,17 @@ IndexError.prototype.name = 'IndexError';
  * DB INDEX CLASS                                                             *
  * ========================================================================== */
 
-const SELECT_SQL = Symbol('select_sql');
-const SCOPED_SQL = Symbol('scoped_sql');
-const INSERT_SQL = Symbol('insert_sql');
-const DELETE_SQL = Symbol('delete_sql');
+const SELECT_SQL = 'SELECT "owner" FROM "objects_index" WHERE "scope" = $1::uuid AND "value" = $2::uuid';
+const SCOPED_SQL = 'SELECT DISTINCT("owner") FROM "objects_index" WHERE "scope" = $1::uuid';
+const INSERT_SQL = 'INSERT INTO "objects_index" ("scope", "owner", "value") VALUES ';
+const DELETE_SQL = 'DELETE FROM "objects_index" WHERE "scope" = $1::uuid AND "owner" = $2::uuid';
 const CLIENT = Symbol('client');
 
 class DbIndex {
-  constructor(tableName, client) {
-
-    // Validate table name and key manager
-    if (!util.isString(tableName)) throw new Error('Table name must be a string');
-    if (!tableName.match(/^\w+$/)) throw new Error(`Invalid table name ${tableName}`);
-
-    // Access to our database (RO/RW)
-    if (!(client instanceof DbClient)) throw new Error('Database client not specified or invalid');
-
-    // Remember our private properties
-    this[SELECT_SQL] = `SELECT "owner" FROM "${tableName}" WHERE "scope" = $1::uuid AND "value" = $2::uuid`;
-    this[SCOPED_SQL] = `SELECT DISTINCT("owner") FROM "${tableName}" WHERE "scope" = $1::uuid`;
-    this[INSERT_SQL] = `INSERT INTO "${tableName}" ("scope", "owner", "value") VALUES `;
-    this[DELETE_SQL] = `DELETE FROM "${tableName}" WHERE "scope" = $1::uuid AND "owner" = $2::uuid`;
+  constructor(client) {
+    if (!(client instanceof DbClient)) {
+      throw new Error('Database client not specified or invalid');
+    }
     this[CLIENT] = client;
   }
 
@@ -95,7 +85,7 @@ class DbIndex {
 
         // Shortcut w/o using "find", as we already have V5 UUIDs
         keys.forEach(function(key) {
-          promises.push(query(self[SELECT_SQL], scope, values[key])
+          promises.push(query(SELECT_SQL, scope, values[key])
             .then(function(result) {
               if ((! result) || (! result.rows) || (! result.rows[0])) return null;
               return result.rows[0].owner;
@@ -119,7 +109,7 @@ class DbIndex {
             if (duplicates_found) throw new IndexError(scope, owner, duplicates);
 
             // Coast is clear, just insert...
-            return query(self[INSERT_SQL] + sql.join(', '), params)
+            return query(INSERT_SQL + sql.join(', '), params)
           })
           .then(function() {
             // Return map of { attribute --> v5 uuid }
@@ -150,7 +140,7 @@ class DbIndex {
         var uuid = UUID.v5(scope, key + ":" + value);
 
         // Insert our indexable values...
-        resolve(query(self[SELECT_SQL], scope, uuid)
+        resolve(query(SELECT_SQL, scope, uuid)
           .then(function(result) {
             if ((! result) || (! result.rows) || (! result.rows[0])) return null;
             return result.rows[0].owner;
@@ -177,7 +167,7 @@ class DbIndex {
     return new Promise(function(resolve, reject) {
 
         // Insert our indexable values...
-        resolve(query(self[SCOPED_SQL], scope)
+        resolve(query(SCOPED_SQL, scope)
           .then(function(result) {
             if ((! result) || (! result.rows) || (! result.rows[0])) return [];
             var owners = [];
@@ -200,7 +190,7 @@ class DbIndex {
       return self.clear(scope, owner, query);
     });
 
-    return query(self[DELETE_SQL], scope, owner)
+    return query(DELETE_SQL, scope, owner)
       .then(function() {});
   }
 

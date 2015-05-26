@@ -3,25 +3,34 @@
 const expect = require('chai').expect;
 const DbIndex = require('../src/db-index');
 
-describe.skip('Database Index', function() {
+describe('Database Index', function() {
 
   const scope1 = '125036e8-d182-41a4-ad65-2a06180e7fe0';
   const scope2 = '4656dada-b495-43e8-bdce-27f3aa2096e8';
   const scopeX = '838f81ba-a1d4-4302-b5f5-43d7ebecfda0';
   const owner1 = 'b2b3cbc4-dc28-464f-a087-20bead5daf2f';
   const owner2 = '387d0c2e-554c-4063-a4fe-f829bdb7e8f8';
-  var file1 = require('path').resolve(__dirname, '../ddl2.sql');
-  var file2 = require('path').resolve(__dirname, './ddl/db-index.test.sql');
-  var ddl1 = require('fs').readFileSync(file1).toString('utf8');
-  var ddl2 = require('fs').readFileSync(file2).toString('utf8');
-  var testdb = require('./testdb')(ddl1 + "\n" + ddl2);
+
+  const data_ddl = `INSERT INTO encryption_keys (uuid, encrypted_key)
+                    VALUES ('e97296d6-6143-40bd-8f29-9b5c71d6b4ee', '');
+
+                    INSERT INTO objects(uuid, kind, encryption_key, encrypted_data)
+                    VALUES ('${scope1}', 'domain', 'e97296d6-6143-40bd-8f29-9b5c71d6b4ee', ''),
+                           ('${scope2}', 'domain', 'e97296d6-6143-40bd-8f29-9b5c71d6b4ee', ''),
+                           ('${scopeX}', 'domain', 'e97296d6-6143-40bd-8f29-9b5c71d6b4ee', ''),
+                           ('${owner1}', 'domain', 'e97296d6-6143-40bd-8f29-9b5c71d6b4ee', ''),
+                           ('${owner2}', 'domain', 'e97296d6-6143-40bd-8f29-9b5c71d6b4ee', '')`;
+
+  var file = require('path').resolve(__dirname, '../ddl2.sql');
+  var ddl = require('fs').readFileSync(file).toString('utf8');
+  var testdb = require('./testdb')(ddl + ";\n" + data_ddl);
   var client = null;
   var index = null;
   var ok = false;
 
   before(testdb.before);
   before(function() {
-    index = new DbIndex('test_index', testdb.client);
+    index = new DbIndex(testdb.client);
     client = testdb.client;
   })
   after(testdb.after);
@@ -55,7 +64,7 @@ describe.skip('Database Index', function() {
           foo: 'b552e0dd-33a0-5b95-8631-9fbe748c9f92',
           baz: 'd3287628-11e6-52c5-ab8c-4a685fffcdce',
         });
-        return client.read('SELECT "scope", "owner", "value" FROM "test_index"');
+        return client.read('SELECT "scope", "owner", "value" FROM "objects_index"');
       })
       .then(function(result) {
         expect(result.rows.length).to.equal(6);

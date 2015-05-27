@@ -26,7 +26,6 @@ describe('Database Index', function() {
   var testdb = require('./testdb')(ddl + ";\n" + data_ddl);
   var client = null;
   var index = null;
-  var ok = false;
 
   before(testdb.before);
   before(function() {
@@ -35,114 +34,194 @@ describe('Database Index', function() {
   })
   after(testdb.after);
 
-  it('should index some values', function(done) {
-    var attributes = { foo: "bar", baz: 123, gonzo: null};
-    index.index(scope1, owner1, attributes)
-      .then(function(result) {
-        expect(result).to.eql({
-          foo: 'b12a133a-65ea-5e79-a846-a540b4cc2d89',
-          baz: '03b1fb8c-bd70-59bf-b79e-e41a6ffed9c0',
-        });
-        return index.index(scope2, owner1, attributes); // different scope
-      })
-      .then(function(result) {
-        expect(result).to.eql({
-          foo: '93a8d45e-1795-598c-a7a0-fa7016a86190',
-          baz: 'ca323926-cfc2-5149-afbc-f542c7aa393d',
-        });
-        return index.index(scope1, owner2, attributes); // different owner
-      })
-      .catch(function(error) {
-        expect(error.message).to.match(new RegExp(`^Duplicate values indexing attributes for "${owner2}" in scope "${scope1}"`));
-        expect(error.scope).to.equal(scope1);
-        expect(error.owner).to.equal(owner2);
-        expect(error.duplicates).to.eql({ foo: owner1, baz: owner1 });
-        return(index.index(scope1, owner2, { foo: "baz", baz: 321 })); // different values
-      })
-      .then(function(result) {
-        expect(result).to.eql({
-          foo: 'b552e0dd-33a0-5b95-8631-9fbe748c9f92',
-          baz: 'd3287628-11e6-52c5-ab8c-4a685fffcdce',
-        });
-        return client.read('SELECT "scope", "owner", "value" FROM "objects_index"');
-      })
-      .then(function(result) {
-        expect(result.rows.length).to.equal(6);
-        expect(result.rows).to.deep.include.members([
-          { scope: scope1, owner: owner1, value: 'b12a133a-65ea-5e79-a846-a540b4cc2d89' }, // foo:bar
-          { scope: scope1, owner: owner1, value: '03b1fb8c-bd70-59bf-b79e-e41a6ffed9c0' }, // baz:123
-          { scope: scope1, owner: owner2, value: 'b552e0dd-33a0-5b95-8631-9fbe748c9f92' }, // foo:baz
-          { scope: scope1, owner: owner2, value: 'd3287628-11e6-52c5-ab8c-4a685fffcdce' }, // baz:321
-          { scope: scope2, owner: owner1, value: '93a8d45e-1795-598c-a7a0-fa7016a86190' }, // foo:bar
-          { scope: scope2, owner: owner1, value: 'ca323926-cfc2-5149-afbc-f542c7aa393d' }, // baz:123
-        ]);
-        ok = true;
-        done();
-      })
-      .catch(done);
+  describe('Scoped attributes', function() {
+    var ok = false;
+
+    it('should index some values', function(done) {
+      var attributes = { foo: "bar", baz: 123, gonzo: null };
+      index.index(scope1, owner1, attributes)
+
+        // Simple initial indexing
+        .then(function(result) {
+          expect(result).to.eql({
+            foo: 'b12a133a-65ea-5e79-a846-a540b4cc2d89',
+            baz: '03b1fb8c-bd70-59bf-b79e-e41a6ffed9c0',
+          });
+          return index.index(scope2, owner1, attributes); // different scope
+        })
+
+        // Same attributes, different scope
+        .then(function(result) {
+          expect(result).to.eql({
+            foo: '93a8d45e-1795-598c-a7a0-fa7016a86190',
+            baz: 'ca323926-cfc2-5149-afbc-f542c7aa393d',
+          });
+          return index.index(scope1, owner2, attributes); // different owner
+        })
+
+
+        // Same attributes, same scope, different owner
+        .then(function(result) {
+          console.log("Wrong result gotten", result);
+          throw new Error("Should have not gotten a result");
+        }, function(error) {
+          expect(error.message).to.match(new RegExp(`^Duplicate values indexing attributes for "${owner2}" in scope "${scope1}"`));
+          expect(error.scope).to.equal(scope1);
+          expect(error.owner).to.equal(owner2);
+          expect(error.duplicates).to.eql({ foo: owner1, baz: owner1 });
+          return(index.index(scope1, owner2, { foo: "baz", baz: 321 })); // different values
+        })
+
+        // Different values after error above
+        .then(function(result) {
+          expect(result).to.eql({
+            foo: 'b552e0dd-33a0-5b95-8631-9fbe748c9f92',
+            baz: 'd3287628-11e6-52c5-ab8c-4a685fffcdce',
+          });
+          return client.read('SELECT "scope", "owner", "value" FROM "objects_index"');
+        })
+
+        // Check all results!
+        .then(function(result) {
+          expect(result.rows.length).to.equal(6);
+          expect(result.rows).to.deep.include.members([
+            { scope: scope1, owner: owner1, value: 'b12a133a-65ea-5e79-a846-a540b4cc2d89' }, // foo:bar
+            { scope: scope1, owner: owner1, value: '03b1fb8c-bd70-59bf-b79e-e41a6ffed9c0' }, // baz:123
+            { scope: scope1, owner: owner2, value: 'b552e0dd-33a0-5b95-8631-9fbe748c9f92' }, // foo:baz
+            { scope: scope1, owner: owner2, value: 'd3287628-11e6-52c5-ab8c-4a685fffcdce' }, // baz:321
+            { scope: scope2, owner: owner1, value: '93a8d45e-1795-598c-a7a0-fa7016a86190' }, // foo:bar
+            { scope: scope2, owner: owner1, value: 'ca323926-cfc2-5149-afbc-f542c7aa393d' }, // baz:123
+          ]);
+          ok = true;
+          done();
+        })
+        .catch(done);
+    });
+
+    it('should find the correct values', function(done) {
+      if (! ok) return this.skip();
+
+      index.find(scope1, "foo", "bar" )
+        .then(function(result) {
+          expect(result).to.equal(owner1);
+          return index.find(scope1, "foo", "baz")
+        })
+        .then(function(result) {
+          expect(result).to.equal(owner2);
+          return index.find(scope1, "baz", 123)
+        })
+        .then(function(result) {
+          expect(result).to.equal(owner1);
+          return index.find(scope1, "baz", 321)
+        })
+        .then(function(result) {
+          expect(result).to.equal(owner2);
+          return index.find(scope2, "foo", "bar")
+        })
+        .then(function(result) {
+          expect(result).to.equal(owner1);
+          return index.find(scope2, "foo", "baz")
+        })
+        .then(function(result) {
+          expect(result).to.be.null;
+          done();
+        })
+        .catch(done);
+    });
+
+    it('should find all scoped values', function(done) {
+      if (! ok) return this.skip();
+
+      index.scoped(scope1)
+        .then(function(result) {
+          expect(result).to.be.instanceof(Array);
+          expect(result).to.include.members([owner1, owner2]);
+          expect(result.length).to.equal(2);
+
+          return index.scoped(scope2);
+        })
+        .then(function(result) {
+          expect(result).to.be.instanceof(Array);
+          expect(result[0]).to.equal(owner1);
+          expect(result.length).to.equal(1);
+
+          return index.scoped(scopeX);
+        })
+        .then(function(result) {
+          expect(result).to.be.instanceof(Array);
+          expect(result.length).to.equal(0);
+
+          return index.scoped('not-a-uuid');
+        })
+        .then(function(result) {
+          expect(result).to.be.instanceof(Array);
+          expect(result.length).to.equal(0);
+          done();
+        })
+        .catch(done);
+    });
   });
 
-  it('should find the correct values', function(done) {
-    if (! ok) return this.skip();
+  describe('Global (null-scoped) attributes', function() {
+    var ok = false;
 
-    index.find(scope1, "foo", "bar" )
-      .then(function(result) {
-        expect(result).to.equal(owner1);
-        return index.find(scope1, "foo", "baz")
-      })
-      .then(function(result) {
-        expect(result).to.equal(owner2);
-        return index.find(scope1, "baz", 123)
-      })
-      .then(function(result) {
-        expect(result).to.equal(owner1);
-        return index.find(scope1, "baz", 321)
-      })
-      .then(function(result) {
-        expect(result).to.equal(owner2);
-        return index.find(scope2, "foo", "bar")
-      })
-      .then(function(result) {
-        expect(result).to.equal(owner1);
-        return index.find(scope2, "foo", "baz")
-      })
-      .then(function(result) {
-        expect(result).to.be.null;
-        done();
-      })
-      .catch(done);
+    it('should index some unscoped attributes', function(done) {
+      var attributes = { unscoped: "yes" };
+      index.index(null, owner1, attributes)
+        .then(function(result) {
+          expect(result).to.eql({ unscoped: '11292838-c55d-59e3-833f-f796812589ff' });
+          return index.index(null, owner2, attributes); // different owner
+        })
+        .catch(function(error) {
+          expect(error.message).to.match(new RegExp(`^Duplicate values indexing attributes for "${owner2}" in NULL scope`));
+          expect(error.scope).to.equal(null);
+          expect(error.owner).to.equal(owner2);
+          expect(error.duplicates).to.eql({ unscoped: owner1 });
+          return(index.index(null, owner2, { unscoped: 123 })); // different values (reindex)
+        })
+        .then(function(result) {
+          expect(result).to.eql({ unscoped: '66b12f27-0c93-530b-a21d-0528ee8593b6' });
+          return client.read('SELECT "owner", "value" FROM "objects_index" WHERE "scope" IS NULL');
+        })
+        .then(function(result) {
+          expect(result.rows.length).to.equal(2);
+          expect(result.rows).to.deep.include.members([
+            { owner: owner1, value: '11292838-c55d-59e3-833f-f796812589ff' }, // unscoped:yes
+            { owner: owner2, value: '66b12f27-0c93-530b-a21d-0528ee8593b6' }, // unscoped:123
+          ]);
+          ok = true;
+          done();
+        })
+        .catch(done);
+    });
+
+    it('should find the correct unscoped values', function(done) {
+      if (! ok) return this.skip();
+
+      index.find(null, "unscoped", "yes" )
+        .then(function(result) {
+          expect(result).to.equal(owner1);
+          return index.find(null, "unscoped", "123")
+        })
+        .then(function(result) {
+          expect(result).to.equal(owner2);
+          done();
+        })
+        .catch(done);
+    });
+
+    it('should find all unscoped values', function(done) {
+      if (! ok) return this.skip();
+
+      index.scoped(null)
+        .then(function(result) {
+          expect(result).to.be.instanceof(Array);
+          expect(result).to.include.members([owner1, owner2]);
+          expect(result.length).to.equal(2);
+          done();
+        })
+        .catch(done);
+    });
+
   });
-
-  it('should find all scoped values', function(done) {
-    if (! ok) return this.skip();
-
-    index.scoped(scope1)
-      .then(function(result) {
-        expect(result).to.be.instanceof(Array);
-        expect(result).to.include.members([owner1, owner2]);
-        expect(result.length).to.equal(2);
-
-        return index.scoped(scope2);
-      })
-      .then(function(result) {
-        expect(result).to.be.instanceof(Array);
-        expect(result[0]).to.equal(owner1);
-        expect(result.length).to.equal(1);
-
-        return index.scoped(scopeX);
-      })
-      .then(function(result) {
-        expect(result).to.be.instanceof(Array);
-        expect(result.length).to.equal(0);
-
-        return index.scoped('not-a-uuid');
-      })
-      .then(function(result) {
-        expect(result).to.be.instanceof(Array);
-        expect(result.length).to.equal(0);
-        done();
-      })
-      .catch(done);
-  });
-
 });

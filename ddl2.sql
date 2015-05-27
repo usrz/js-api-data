@@ -248,33 +248,25 @@ CREATE VIEW available_objects AS
 -- | * ===================================================================== * |
 -- * ========================================================================= *
 
--- Search base table, holding attribute values for each owner
+-- Index table, holding (uniquw) attribute values for each owner
 --
 -- scope      -> the key that groups all hashed values together (eg. domain)
+--               or "NULL" if this is a global (unscoped) attribute.
 -- owner      -> owner of the indexed value (eg. a user in the scoped domain)
 -- value      -> UUIDv5 (hashed) from the scope UUID and "key:value" (string)
 -- indexed_at -> when the value was indexed.
 --
-CREATE TABLE "objects_search" (
-  "scope"      UUID                     NOT NULL,
+CREATE TABLE "objects_index" (
+  "scope"      UUID, -- Remember, this is NULL-able!
   "owner"      UUID                     NOT NULL,
   "value"      UUID                     NOT NULL,
   "indexed_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
 
-  -- Foreign key references
+  -- Foreign key references (those are not copied with LIKE)
   FOREIGN KEY ("scope") REFERENCES "objects" ("uuid") ON DELETE CASCADE,
   FOREIGN KEY ("owner") REFERENCES "objects" ("uuid") ON DELETE CASCADE
 );
 
--- Index table, like search but not allowing duplicate values in each scope
---
-CREATE TABLE "objects_index" (
-  LIKE "objects_search" INCLUDING CONSTRAINTS INCLUDING INDEXES INCLUDING DEFAULTS,
-
-  -- Foreign key references (those are not copied with LIKE)
-  FOREIGN KEY ("scope") REFERENCES "objects" ("uuid") ON DELETE CASCADE,
-  FOREIGN KEY ("owner") REFERENCES "objects" ("uuid") ON DELETE CASCADE,
-
-  -- Unique constraint for scope -> value
-  UNIQUE (scope, value)
-);
+-- Unique constraint for scope -> value
+CREATE UNIQUE INDEX ON "objects_index" (value)        WHERE "scope" IS     NULL;
+CREATE UNIQUE INDEX ON "objects_index" (value, scope) WHERE "scope" IS NOT NULL;

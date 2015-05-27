@@ -5,7 +5,7 @@ const KeyManager = require('../src/key-manager');
 const Domains = require('../src/domains');
 const Users = require('../src/users');
 
-describe.skip('Users', function() {
+describe('Users', function() {
 
   var file = require('path').resolve(__dirname, '../ddl2.sql');
   var ddl = require('fs').readFileSync(file).toString('utf8');

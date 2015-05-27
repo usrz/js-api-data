@@ -5,8 +5,6 @@ const DbStore = require('./db-store');
 const DbIndex = require('./db-index');
 const Domains = require('./domains');
 
-const nil = require('./uuid').NULL.toString();
-
 const util = require('util');
 const joi = require('joi');
 
@@ -30,14 +28,12 @@ const DOMAINS = Symbol('domains');
 const CLIENT = Symbol('client');
 const STORE = Symbol('store');
 const INDEX = Symbol('index');
-const POSIX = Symbol('posix');
 
 class Users {
   constructor(keyManager, client) {
     this[CLIENT] = client;
-    this[STORE] = new DbStore('users', keyManager, client, validator);
-    this[INDEX] = new DbIndex('users_index', client);
-    this[POSIX] = new DbIndex('posix_index', client);
+    this[STORE] = new DbStore(keyManager, client, validator);
+    this[INDEX] = new DbIndex(client);
     this[DOMAINS] = new Domains(keyManager, client);
   }
 
@@ -55,7 +51,7 @@ class Users {
       return self.get(uuid, include_deleted, query);
     });
 
-    return this[STORE].select(uuid, include_deleted, query);
+    return this[STORE].select(uuid, 'user', include_deleted, query);
   }
 
   find(email, query) {
@@ -67,12 +63,12 @@ class Users {
     });
 
     // Find the user by email
-    return self[INDEX].find(nil, 'email', email, query)
+    return self[INDEX].find(null, 'email', email, query)
       .then(function(uuid) {
         if (! uuid) return null;
 
         // Yes, include deleted, they should be wiped anyway
-        return self[STORE].select(uuid, true, query)
+        return self[STORE].select(uuid, 'user', true, query)
           .then(function(user) {
             if (user.deleted_at) throw new Error(`Found deleted user "${uuid}"`);
             return user;
@@ -81,7 +77,7 @@ class Users {
   }
 
   domain(domain, include_deleted, query) {
-    return this[STORE].parent(domain, include_deleted, query);
+    return this[STORE].parent(domain, 'user', include_deleted, query);
   }
 
   create(domain, attributes, query) {
@@ -106,7 +102,7 @@ class Users {
         }
 
         // Insert the user
-        return self[STORE].insert(domain, attributes, query)
+        return self[STORE].insert('user', domain, attributes, query)
           .then(function(user) {
             if (! user) throw new Error('No user was created');
 
@@ -114,9 +110,9 @@ class Users {
             return user.attributes()
               .then(function(attributes) {
                 var promises = []
-                promises.push(self[INDEX].index(nil, user.uuid, { email: attributes.email }, query));
+                promises.push(self[INDEX].index(null, user.uuid, { email: attributes.email }, query));
                 if (attributes.user_name) {
-                  promises.push(self[POSIX].index(user.parent, user.uuid, {
+                  promises.push(self[INDEX].index(user.parent, user.uuid, {
                       user_name: attributes.user_name,
                       posix_uid: attributes.posix_uid,
                       posix_gid: attributes.posix_gid
@@ -154,15 +150,15 @@ class Users {
         return user.attributes()
           .then(function(attributes) {
             var promises = []
-            promises.push(self[INDEX].index(nil, user.uuid, { email: attributes.email }, query))
+            promises.push(self[INDEX].index(null, user.uuid, { email: attributes.email }, query))
             if (attributes.user_name) {
-              promises.push(self[POSIX].index(user.parent, user.uuid, {
+              promises.push(self[INDEX].index(user.parent, user.uuid, {
                   user_name: attributes.user_name,
                   posix_uid: attributes.posix_uid,
                   posix_gid: attributes.posix_gid
                 }, query));
             } else {
-              promises.push(self[POSIX].clear(user.parent, user.uuid, query))
+              promises.push(self[INDEX].clear(user.parent, user.uuid, query))
             }
             return Promise.all(promises);
           })
@@ -185,8 +181,8 @@ class Users {
         if (! deleted) return null;
 
         return Promise.all([
-            self[INDEX].clear(nil, uuid, query),
-            self[POSIX].clear(deleted.parent, uuid, query)
+            self[INDEX].clear(null, uuid, query),
+            self[INDEX].clear(deleted.parent, uuid, query)
           ])
           .then(function() {
             return deleted;

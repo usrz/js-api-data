@@ -149,18 +149,14 @@ class Users {
         // Re-index email address and return the updated user
         return user.attributes()
           .then(function(attributes) {
-            var promises = []
-            promises.push(self[INDEX].index(null, user.uuid, { email: attributes.email }, query))
-            if (attributes.user_name) {
-              promises.push(self[INDEX].index(user.parent, user.uuid, {
+            return Promise.all([
+              self[INDEX].index(null, user.uuid, { email: attributes.email }, query),
+              self[INDEX].index(user.parent, user.uuid, {
                   user_name: attributes.user_name,
                   posix_uid: attributes.posix_uid,
                   posix_gid: attributes.posix_gid
-                }, query));
-            } else {
-              promises.push(self[INDEX].clear(user.parent, user.uuid, query))
-            }
-            return Promise.all(promises);
+                }, query)
+              ]);
           })
           .then(function(indexed) {
             return user;
@@ -176,18 +172,7 @@ class Users {
       return self.delete(uuid, query);
     });
 
-    return this[STORE].delete(uuid, query)
-      .then(function(deleted) {
-        if (! deleted) return null;
-
-        return Promise.all([
-            self[INDEX].clear(null, uuid, query),
-            self[INDEX].clear(deleted.parent, uuid, query)
-          ])
-          .then(function() {
-            return deleted;
-          })
-      })
+    return this[STORE].delete(uuid, query);
   }
 }
 

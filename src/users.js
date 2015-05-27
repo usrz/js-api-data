@@ -33,7 +33,7 @@ class Users {
   constructor(keyManager, client) {
     this[CLIENT] = client;
     this[STORE] = new DbStore(keyManager, client, validator);
-    this[INDEX] = new DbIndex(client);
+    this[INDEX] = new DbIndex(keyManager, client);
     this[DOMAINS] = new Domains(keyManager, client);
   }
 

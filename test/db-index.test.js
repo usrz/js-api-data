@@ -1,6 +1,8 @@
 'use strict';
 
 const expect = require('chai').expect;
+
+const KeyManager = require('../src/key-manager');
 const DbIndex = require('../src/db-index');
 
 describe('Database Index', function() {
@@ -29,7 +31,8 @@ describe('Database Index', function() {
 
   before(testdb.before);
   before(function() {
-    index = new DbIndex(testdb.client);
+    var keyManager = new KeyManager(new Buffer(32), testdb.client);
+    index = new DbIndex(keyManager, testdb.client);
     client = testdb.client;
   })
   after(testdb.after);

@@ -1,5 +1,6 @@
 'use strict';
 
+const KeyManager = require('./key-manager');
 const DbClient = require('./db-client');
 const UUID = require('./uuid');
 const util = require('util');
@@ -39,13 +40,16 @@ const SELECT_SQL = 'SELECT "owner" FROM "objects_index" WHERE COALESCE("scope", 
 const SCOPED_SQL = 'SELECT DISTINCT("owner") FROM "objects_index" WHERE COALESCE("scope", uuid_nil()) = $1::uuid';
 const INSERT_SQL = 'INSERT INTO "objects_index" ("scope", "owner", "value") VALUES ';
 const DELETE_SQL = 'DELETE FROM "objects_index" WHERE COALESCE("scope", uuid_nil()) = $1::uuid AND "owner" = $2::uuid';
+
 const CLIENT = Symbol('client');
+const KEY_MANAGER = Symbol('key_manager');
 
 class DbIndex {
-  constructor(client) {
-    if (!(client instanceof DbClient)) {
-      throw new Error('Database client not specified or invalid');
-    }
+  constructor(keyManager, client) {
+    if (!(keyManager instanceof KeyManager)) throw new Error('Invalid key manager');
+    if (!(client instanceof DbClient)) throw new Error('Database client not specified or invalid');
+
+    this[KEY_MANAGER] = keyManager;
     this[CLIENT] = client;
   }
 

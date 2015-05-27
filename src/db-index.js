@@ -2,6 +2,7 @@
 
 const KeyManager = require('./key-manager');
 const DbClient = require('./db-client');
+const DbObject = require('./db-object');
 const UUID = require('./uuid');
 const util = require('util');
 
@@ -36,7 +37,10 @@ IndexError.prototype.name = 'IndexError';
  * DB INDEX CLASS                                                             *
  * ========================================================================== */
 
-const SELECT_SQL = 'SELECT "owner" FROM "objects_index" WHERE COALESCE("scope", uuid_nil()) = $1::uuid AND "value" = $2::uuid';
+const SELECT_SQL = 'SELECT "objects".* FROM "objects_index", "objects"'
+                 + ' WHERE "objects"."uuid" = "objects_index"."owner"'
+                 +   ' AND COALESCE("scope", uuid_nil()) = $1::uuid'
+                 +   ' AND "value" = $2::uuid';
 const SCOPED_SQL = 'SELECT DISTINCT("owner") FROM "objects_index" WHERE COALESCE("scope", uuid_nil()) = $1::uuid';
 const INSERT_SQL = 'INSERT INTO "objects_index" ("scope", "owner", "value") VALUES ';
 const DELETE_SQL = 'DELETE FROM "objects_index" WHERE COALESCE("scope", uuid_nil()) = $1::uuid AND "owner" = $2::uuid';
@@ -91,7 +95,7 @@ class DbIndex {
             promises.push(query(SELECT_SQL, ns, values[key])
               .then(function(result) {
                 if ((! result) || (! result.rows) || (! result.rows[0])) return null;
-                return result.rows[0].owner;
+                return new DbObject(result.rows[0], self[KEY_MANAGER]);
               }));
           }
         });
@@ -150,7 +154,7 @@ class DbIndex {
         resolve(query(SELECT_SQL, scope, uuid)
           .then(function(result) {
             if ((! result) || (! result.rows) || (! result.rows[0])) return null;
-            return result.rows[0].owner;
+            return new DbObject(result.rows[0], self[KEY_MANAGER]);
           }));
     });
   }

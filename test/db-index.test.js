@@ -71,7 +71,10 @@ describe('Database Index', function() {
           expect(error.message).to.match(new RegExp(`^Duplicate values indexing attributes for "${owner2}" in scope "${scope1}"`));
           expect(error.scope).to.equal(scope1);
           expect(error.owner).to.equal(owner2);
-          expect(error.duplicates).to.eql({ foo: owner1, baz: owner1 });
+          expect(error.duplicates.foo).to.exist;
+          expect(error.duplicates.baz).to.exist;
+          expect(error.duplicates.foo.uuid).to.eql(owner1);
+          expect(error.duplicates.baz.uuid).to.eql(owner1);
           return(index.index(scope1, owner2, { foo: "baz", baz: 321 })); // different values
         })
 
@@ -106,23 +109,28 @@ describe('Database Index', function() {
 
       index.find(scope1, "foo", "bar" )
         .then(function(result) {
-          expect(result).to.equal(owner1);
+          expect(result).to.exist;
+          expect(result.uuid).to.equal(owner1);
           return index.find(scope1, "foo", "baz")
         })
         .then(function(result) {
-          expect(result).to.equal(owner2);
+          expect(result).to.exist;
+          expect(result.uuid).to.equal(owner2);
           return index.find(scope1, "baz", 123)
         })
         .then(function(result) {
-          expect(result).to.equal(owner1);
+          expect(result).to.exist;
+          expect(result.uuid).to.equal(owner1);
           return index.find(scope1, "baz", 321)
         })
         .then(function(result) {
-          expect(result).to.equal(owner2);
+          expect(result).to.exist;
+          expect(result.uuid).to.equal(owner2);
           return index.find(scope2, "foo", "bar")
         })
         .then(function(result) {
-          expect(result).to.equal(owner1);
+          expect(result).to.exist;
+          expect(result.uuid).to.equal(owner1);
           return index.find(scope2, "foo", "baz")
         })
         .then(function(result) {
@@ -179,7 +187,8 @@ describe('Database Index', function() {
           expect(error.message).to.match(new RegExp(`^Duplicate values indexing attributes for "${owner2}" in NULL scope`));
           expect(error.scope).to.equal(null);
           expect(error.owner).to.equal(owner2);
-          expect(error.duplicates).to.eql({ unscoped: owner1 });
+          expect(error.duplicates.unscoped).to.exist;
+          expect(error.duplicates.unscoped.uuid).to.equal(owner1);
           return(index.index(null, owner2, { unscoped: 123 })); // different values (reindex)
         })
         .then(function(result) {
@@ -203,11 +212,13 @@ describe('Database Index', function() {
 
       index.find(null, "unscoped", "yes" )
         .then(function(result) {
-          expect(result).to.equal(owner1);
+          expect(result).to.exist;
+          expect(result.uuid).to.equal(owner1);
           return index.find(null, "unscoped", "123")
         })
         .then(function(result) {
-          expect(result).to.equal(owner2);
+          expect(result).to.exist;
+          expect(result.uuid).to.equal(owner2);
           done();
         })
         .catch(done);

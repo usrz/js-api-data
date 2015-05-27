@@ -213,7 +213,8 @@ describe('Users', function() {
           throw new Error('Should have not been created');
         }, function(error) {
           // Duplicated by our existing user!
-          expect(error.duplicates).to.eql({ email: user.uuid });
+          expect(error.duplicates.email).to.exist;
+          expect(error.duplicates.email.uuid).to.equal(user.uuid);
           done();
         })
         .catch(done);
@@ -230,7 +231,8 @@ describe('Users', function() {
           throw new Error('Should have not been created');
         }, function(error) {
           // Duplicated by our existing user!
-          expect(error.duplicates).to.eql({ user_name: user.uuid });
+          expect(error.duplicates.user_name).to.exist;
+          expect(error.duplicates.user_name.uuid).to.equal(user.uuid);
           done();
         })
         .catch(done);
@@ -268,7 +270,8 @@ describe('Users', function() {
           throw new Error('Should have not been modified');
         }, function(error) {
           expect(error.owner).to.equal(user2.uuid);
-          expect(error.duplicates.email).to.equal(user.uuid);
+          expect(error.duplicates.email).to.exist;
+          expect(error.duplicates.email.uuid).to.equal(user.uuid);
           done();
         })
         .catch(done);

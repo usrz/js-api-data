@@ -63,17 +63,7 @@ class Users {
     });
 
     // Find the user by email
-    return self[INDEX].find(null, 'email', email, query)
-      .then(function(uuid) {
-        if (! uuid) return null;
-
-        // Yes, include deleted, they should be wiped anyway
-        return self[STORE].select(uuid, 'user', true, query)
-          .then(function(user) {
-            if (user.deleted_at) throw new Error(`Found deleted user "${uuid}"`);
-            return user;
-        })
-    })
+    return self[INDEX].find(null, 'email', email, query);
   }
 
   domain(domain, include_deleted, query) {

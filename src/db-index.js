@@ -41,7 +41,6 @@ const SELECT_SQL = 'SELECT "objects".* FROM "objects_index", "objects"'
                  + ' WHERE "objects"."uuid" = "objects_index"."owner"'
                  +   ' AND COALESCE("scope", uuid_nil()) = $1::uuid'
                  +   ' AND "value" = $2::uuid';
-const SCOPED_SQL = 'SELECT DISTINCT("owner") FROM "objects_index" WHERE COALESCE("scope", uuid_nil()) = $1::uuid';
 const INSERT_SQL = 'INSERT INTO "objects_index" ("scope", "owner", "value") VALUES ';
 const DELETE_SQL = 'DELETE FROM "objects_index" WHERE COALESCE("scope", uuid_nil()) = $1::uuid AND "owner" = $2::uuid';
 
@@ -155,37 +154,6 @@ class DbIndex {
           .then(function(result) {
             if ((! result) || (! result.rows) || (! result.rows[0])) return null;
             return new DbObject(result.rows[0], self[KEY_MANAGER]);
-          }));
-    });
-  }
-
-  /* ------------------------------------------------------------------------ *
-   * Find any owner in the given scope                                        *
-   * ------------------------------------------------------------------------ */
-  scoped(scope, query) {
-    var self = this;
-
-    // Empty array for invalud UUIDs
-    scope = scope ? UUID.validate(scope) : nil;
-    if (! scope) return Promise.resolve([]);
-
-    // Connect to the DB if not already
-    if (! query) return self[CLIENT].read(function(query) {
-      return self.scoped(scope, query);
-    });
-
-    // Wrap into a promise
-    return new Promise(function(resolve, reject) {
-
-        // Insert our indexable values...
-        resolve(query(SCOPED_SQL, scope)
-          .then(function(result) {
-            if ((! result) || (! result.rows) || (! result.rows[0])) return [];
-            var owners = [];
-            result.rows.forEach(function(row) {
-              owners.push(row.owner);
-            })
-            return owners;
           }));
     });
   }

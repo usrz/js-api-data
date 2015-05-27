@@ -139,38 +139,6 @@ describe('Database Index', function() {
         })
         .catch(done);
     });
-
-    it('should find all scoped values', function(done) {
-      if (! ok) return this.skip();
-
-      index.scoped(scope1)
-        .then(function(result) {
-          expect(result).to.be.instanceof(Array);
-          expect(result).to.include.members([owner1, owner2]);
-          expect(result.length).to.equal(2);
-
-          return index.scoped(scope2);
-        })
-        .then(function(result) {
-          expect(result).to.be.instanceof(Array);
-          expect(result[0]).to.equal(owner1);
-          expect(result.length).to.equal(1);
-
-          return index.scoped(scopeX);
-        })
-        .then(function(result) {
-          expect(result).to.be.instanceof(Array);
-          expect(result.length).to.equal(0);
-
-          return index.scoped('not-a-uuid');
-        })
-        .then(function(result) {
-          expect(result).to.be.instanceof(Array);
-          expect(result.length).to.equal(0);
-          done();
-        })
-        .catch(done);
-    });
   });
 
   describe('Global (null-scoped) attributes', function() {
@@ -223,19 +191,5 @@ describe('Database Index', function() {
         })
         .catch(done);
     });
-
-    it('should find all unscoped values', function(done) {
-      if (! ok) return this.skip();
-
-      index.scoped(null)
-        .then(function(result) {
-          expect(result).to.be.instanceof(Array);
-          expect(result).to.include.members([owner1, owner2]);
-          expect(result.length).to.equal(2);
-          done();
-        })
-        .catch(done);
-    });
-
   });
 });

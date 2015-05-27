@@ -7,7 +7,7 @@ const Users = require('../src/users');
 
 describe('Users', function() {
 
-  var file = require('path').resolve(__dirname, '../ddl2.sql');
+  var file = require('path').resolve(__dirname, '../ddl.sql');
   var ddl = require('fs').readFileSync(file).toString('utf8');
   var testdb = require('./testdb')(ddl);
   var domains = null;

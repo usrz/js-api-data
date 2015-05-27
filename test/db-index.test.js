@@ -21,7 +21,7 @@ describe('Database Index', function() {
                            ('${owner1}', 'domain', 'e97296d6-6143-40bd-8f29-9b5c71d6b4ee', ''),
                            ('${owner2}', 'domain', 'e97296d6-6143-40bd-8f29-9b5c71d6b4ee', '')`;
 
-  var file = require('path').resolve(__dirname, '../ddl2.sql');
+  var file = require('path').resolve(__dirname, '../ddl.sql');
   var ddl = require('fs').readFileSync(file).toString('utf8');
   var testdb = require('./testdb')(ddl + ";\n" + data_ddl);
   var client = null;

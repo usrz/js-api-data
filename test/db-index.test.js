@@ -5,7 +5,7 @@ const expect = require('chai').expect;
 const KeyManager = require('../src/key-manager');
 const DbIndex = require('../src/db-index');
 
-describe.only('Database Index', function() {
+describe('Database Index', function() {
 
   const scope1 = '125036e8-d182-41a4-ad65-2a06180e7fe0';
   const scope2 = '4656dada-b495-43e8-bdce-27f3aa2096e8';

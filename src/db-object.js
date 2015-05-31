@@ -1,5 +1,7 @@
 'use strict';
 
+const KeyManager = require('./key-manager');
+
 /* ========================================================================== *
  * DB OBJECT CLASS                                                            *
  * ========================================================================== */
@@ -13,6 +15,7 @@ class DbObject {
     if (! row) throw new Error('No row for DB object');
     if (! row.uuid) throw new Error('No UUID for DB object');
     if (! row.parent) throw new Error('No parent UUID for DB object');
+    if (!(keyManager instanceof KeyManager)) throw new Error('Invalid key manager');
 
     this.uuid = row.uuid;
     this.kind = row.kind;

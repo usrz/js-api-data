@@ -4,6 +4,16 @@ module.exports = function(grunt) {
   /* Grunt initialization */
   grunt.initConfig({
 
+    mofu_instrument: {
+      all: {
+        src: ['src/**/*.js']
+      }
+    },
+
+    mofu_report: {
+      dest: './report.html'
+    },
+
     simplemocha: {
       all: {
         src: ['test/**/*.js']
@@ -14,10 +24,12 @@ module.exports = function(grunt) {
   });
 
   /* Load our plugins */
+  grunt.loadNpmTasks('mofu');
   grunt.loadNpmTasks('grunt-simple-mocha');
 
 
   /* Default tasks */
   grunt.registerTask('default', ['simplemocha']);
+  grunt.registerTask('coverage', ['mofu_instrument', 'simplemocha', 'mofu_report']);
 
 };

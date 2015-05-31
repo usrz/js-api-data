@@ -259,7 +259,7 @@ CREATE VIEW available_objects AS
 CREATE TABLE "objects_index" (
   "scope"      UUID, -- Remember, this is NULL-able!
   "owner"      UUID                     NOT NULL,
-  "keyid"      UUID                   ,--  NOT NULL,
+  "keyid"      UUID                     NOT NULL,
   "value"      UUID                     NOT NULL,
   "indexed_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
 

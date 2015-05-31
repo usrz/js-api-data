@@ -101,8 +101,10 @@ class DbIndex {
           // Calculate arguments and parameters for the index insert query
           var scope_pos = ins_params.push(scope);
           var owner_pos = ins_params.push(owner);
+          var keyid_pos = ins_params.push(keyid);
           var value_pos = ins_params.push(value);
-          ins_args.push(`($${scope_pos}::uuid, $${owner_pos}::uuid, $${value_pos}::uuid)`);
+          ins_args.push(`($${scope_pos}::uuid, $${owner_pos}::uuid, `
+                       + `$${keyid_pos}::uuid, $${value_pos}::uuid)`);
 
           // Then for the duplicates check query
           var check_pos = dup_params.push(value);
@@ -144,7 +146,7 @@ class DbIndex {
             }
 
             // Well, good, no duplicates
-            var ins_sql = 'INSERT INTO "objects_index" ("scope", "owner", "value") '
+            var ins_sql = 'INSERT INTO "objects_index" ("scope", "owner", "keyid", "value") '
                         +     ' VALUES ' + ins_args.join(', ');
 
             return query(ins_sql, ins_params)

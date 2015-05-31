@@ -86,19 +86,21 @@ describe('Database Index', function() {
             foo: '5e5e64c5-eaaa-5ad3-a635-1dbf0300e3b1',
             baz: '9cd8bf58-997d-5b40-8c7a-608d0b7a13b9',
           });
-          return client.read('SELECT "scope", "owner", "value" FROM "objects_index"');
+          return client.read('SELECT "scope", "owner", "keyid", "value" FROM "objects_index"');
         })
 
         // Check all results!
         .then(function(result) {
           expect(result.rows.length).to.equal(6);
           expect(result.rows).to.deep.include.members([
-            { scope: scope1, owner: owner1, value: 'e13fde88-a80f-5d14-b34b-8c8147848c7e' }, // foo:bar
-            { scope: scope1, owner: owner1, value: '0c22332e-850c-571b-b931-a85a1af639d6' }, // baz:123
-            { scope: scope2, owner: owner1, value: 'b562184a-f483-5c25-b9e3-61ac3109c238' }, // foo:baz
-            { scope: scope2, owner: owner1, value: '98fb9443-ffa0-54d4-96d9-7c73d743cd50' }, // baz:321
-            { scope: scope1, owner: owner2, value: '5e5e64c5-eaaa-5ad3-a635-1dbf0300e3b1' }, // foo:baz
-            { scope: scope1, owner: owner2, value: '9cd8bf58-997d-5b40-8c7a-608d0b7a13b9' }, // baz:321
+            { scope: scope1, owner: owner1, keyid: '64f75b35-1097-5a01-9c3c-fb3fbb4a86b6', value: 'e13fde88-a80f-5d14-b34b-8c8147848c7e' }, // foo:bar
+            { scope: scope1, owner: owner1, keyid: '3704fe2c-9416-5ff3-a8c0-c757517c16e1', value: '0c22332e-850c-571b-b931-a85a1af639d6' }, // baz:123
+
+            { scope: scope1, owner: owner2, keyid: '64f75b35-1097-5a01-9c3c-fb3fbb4a86b6', value: '5e5e64c5-eaaa-5ad3-a635-1dbf0300e3b1' }, // foo:baz
+            { scope: scope1, owner: owner2, keyid: '3704fe2c-9416-5ff3-a8c0-c757517c16e1', value: '9cd8bf58-997d-5b40-8c7a-608d0b7a13b9' }, // baz:321
+
+            { scope: scope2, owner: owner1, keyid: 'ecba84ef-00c5-5da6-af7c-1e5133c585cb', value: 'b562184a-f483-5c25-b9e3-61ac3109c238' }, // foo:baz
+            { scope: scope2, owner: owner1, keyid: '7db6fb55-7e7f-5299-a6fb-ffadd7f23043', value: '98fb9443-ffa0-54d4-96d9-7c73d743cd50' }, // baz:321
           ]);
           ok = true;
           done();
@@ -163,13 +165,13 @@ describe('Database Index', function() {
         })
         .then(function(result) {
           expect(result).to.eql({ unscoped: '28d9b93b-7604-5600-b08e-92c93ee8fda3' });
-          return client.read('SELECT "owner", "value" FROM "objects_index" WHERE "scope" IS NULL');
+          return client.read('SELECT "owner", "keyid", "value" FROM "objects_index" WHERE "scope" IS NULL');
         })
         .then(function(result) {
           expect(result.rows.length).to.equal(2);
           expect(result.rows).to.deep.include.members([
-            { owner: owner1, value: '30772fb3-e9cb-52ca-a04d-bfbc071be980' }, // unscoped:yes
-            { owner: owner2, value: '28d9b93b-7604-5600-b08e-92c93ee8fda3' }, // unscoped:123
+            { owner: owner1, keyid: '7d34c128-ef7f-54d2-afb8-67a799b0a439', value: '30772fb3-e9cb-52ca-a04d-bfbc071be980' }, // unscoped:yes
+            { owner: owner2, keyid: '7d34c128-ef7f-54d2-afb8-67a799b0a439', value: '28d9b93b-7604-5600-b08e-92c93ee8fda3' }, // unscoped:123
           ]);
           ok = true;
           done();

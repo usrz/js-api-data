@@ -37,15 +37,8 @@ IndexError.prototype.name = 'IndexError';
  * DB INDEX CLASS                                                             *
  * ========================================================================== */
 
-const SELECT_SQL = 'SELECT "objects".* FROM "objects_index", "objects"'
-                 + ' WHERE "objects"."uuid" = "objects_index"."owner"'
-                 +   ' AND COALESCE("scope", uuid_nil()) = $1::uuid'
-                 +   ' AND "value" = $2::uuid';
-const INSERT_SQL = 'INSERT INTO "objects_index" ("scope", "owner", "value") VALUES ';
-const DELETE_SQL = 'DELETE FROM "objects_index" WHERE COALESCE("scope", uuid_nil()) = $1::uuid AND "owner" = $2::uuid';
-
-const CLIENT = Symbol('client');
 const KEY_MANAGER = Symbol('key_manager');
+const CLIENT = Symbol('client');
 
 class DbIndex {
   constructor(keyManager, client) {
@@ -70,60 +63,80 @@ class DbIndex {
     // Delete all previously indexed values
     return this.clear(scope, owner, query)
       .then(function() {
-        // Null scope is 000000.....
-        var ns = scope || nil;
 
-        var sql = [];
-        var keys = [];
-        var params = [];
-        var values = {};
-        var promises = [];
+        // Keys for duplicates, values to return
+        var keys = {}, values = {}, empty = true;
 
+        // Parameters for our insert and duples check query
+        var dup_params = [], dup_args = [];
+        var ins_params = [], ins_args = [];
 
-        // For each attribute, calculate its V5 UUID
+        // Compute ths madness for each attribute
         Object.keys(attributes).forEach(function (key) {
           var value = attributes[key];
-          if (value != null) { // Null? Don't index!
-            var value = values[key] = UUID.v5(ns, key + ":" + attributes[key]);
-            var scope_pos = params.push(scope); // scope (nullable) not 0000...
-            var owner_pos = params.push(owner);
-            var value_pos = params.push(value);
-            sql.push(`($${scope_pos}::uuid, $${owner_pos}::uuid, $${value_pos}::uuid)`);
 
-            keys.push(key);
-            promises.push(query(SELECT_SQL, ns, values[key])
-              .then(function(result) {
-                if ((! result) || (! result.rows) || (! result.rows[0])) return null;
-                return new DbObject(result.rows[0], self[KEY_MANAGER]);
-              }));
-          }
+          // Don't index null values
+          if (value == null) return;
+
+          // Calculate the V5 UUID value to check as a duplicate,
+          // then to be inserted in the db, and finally returned
+          var value = UUID.v5(scope || nil, key + ":" + attributes[key]);
+          values[key] = value;
+          keys[value] = key;
+
+          // Calculate arguments and parameters for the insert query
+          var scope_pos = ins_params.push(scope);
+          var owner_pos = ins_params.push(owner);
+          var value_pos = ins_params.push(value);
+          ins_args.push(`($${scope_pos}::uuid, $${owner_pos}::uuid, $${value_pos}::uuid)`);
+
+          // Then for the duplicates check query
+          var check_pos = dup_params.push(value);
+          dup_args.push(`$${check_pos}::uuid`);
+
+          // Finally, remember that we have to index
+          empty = false;
+
         });
 
         // No parameters? Do nothing...
-        if (params.length == 0) return {};
+        if (empty) return {};
 
-        // Wait for all promises to resolve
-        return Promise.all(promises)
-          .then(function(results) {
+        // Build up our fancy query to find dupes
+        var dup_sql = 'SELECT "objects".*, "objects_index"."value"'
+                    +  ' FROM "objects_index", "objects"'
+                    + ' WHERE "objects_index"."owner" = "objects"."uuid" AND'
+                    +       ' "objects_index"."value" IN (' + dup_args.join(', ') + ') AND ';
 
-            // Check for duplicates
-            var duplicates = {};
-            var duplicates_found = false;
-            for (var i = 0; i < promises.length; i++) {
-              if (results[i] == null) continue;
-              duplicates[keys[i]] = results[i];
-              duplicates_found = true;
+        // Inject our scope in the SQL
+        if (scope == null) {
+          dup_sql += '"objects_index"."scope" IS NULL';
+        } else {
+          var dup_pos = dup_params.push(scope);
+          dup_sql += `"objects_index"."scope" = $${dup_pos}::uuid`
+        }
+
+        return query(dup_sql, dup_params)
+          .then(function(result) {
+
+            // If we have some rows, we have dupes!
+            if (result.rowCount > 0) {
+              var duplicates = {};
+              result.rows.forEach(function(row) {
+                var previous_owner = new DbObject(row, self[KEY_MANAGER]);
+                duplicates[keys[row.value]] = previous_owner;
+              });
+              throw new IndexError(scope, owner, duplicates);
             }
 
-            // Duplicates found? Foobar the entire thing!
-            if (duplicates_found) throw new IndexError(scope, owner, duplicates);
+            // Well, good, no duplicates
+            var ins_sql = 'INSERT INTO "objects_index" ("scope", "owner", "value") '
+                        +     ' VALUES ' + ins_args.join(', ');
 
-            // Coast is clear, just insert...
-            return query(INSERT_SQL + sql.join(', '), params)
-          })
-          .then(function() {
-            // Return map of { attribute --> v5 uuid }
-            return values;
+            return query(ins_sql, ins_params)
+              .then(function() {
+                return values;
+              })
           })
       })
   }
@@ -135,8 +148,8 @@ class DbIndex {
     var self = this;
 
     // NULL for invalud UUIDs
-    scope = scope ? UUID.validate(scope) : nil;
-    if (! scope) return Promise.resolve(null);
+    var namespace = scope ? UUID.validate(scope) : nil;
+    if (! namespace) return Promise.resolve(null);
 
     // Connect to the DB if not already
     if (! query) return self[CLIENT].read(function(query) {
@@ -146,11 +159,25 @@ class DbIndex {
     // Wrap into a promise
     return new Promise(function(resolve, reject) {
 
-        // Calculate the attribute V5 UUID
-        var uuid = UUID.v5(scope, key + ":" + value);
+        // Figure out how to query this puppy
+        var sql = 'SELECT "objects".* FROM "objects_index", "objects"'
+                + ' WHERE "objects"."uuid" = "objects_index"."owner"'
+                +   ' AND "value" = $1::uuid '
+                +   ' AND "scope"';
 
-        // Insert our indexable values...
-        resolve(query(SELECT_SQL, scope, uuid)
+        // Calculate the attribute V5 UUID
+        var params = [ UUID.v5(namespace, key + ":" + value) ];
+
+        // See about that NULL check
+        if (scope) {
+          sql += "= $2::uuid";
+          params.push(scope);
+        } else {
+          sql += "IS NULL";
+        }
+
+        // Let's see what we get...
+        resolve(query(sql, params)
           .then(function(result) {
             if ((! result) || (! result.rows) || (! result.rows[0])) return null;
             return new DbObject(result.rows[0], self[KEY_MANAGER]);
@@ -169,7 +196,18 @@ class DbIndex {
       return self.clear(scope, owner, query);
     });
 
-    return query(DELETE_SQL, scope || nil, owner)
+    var params = [ owner ];
+    var sql = 'DELETE FROM "objects_index"'
+            +      ' WHERE "owner" = $1::uuid'
+            +        ' AND "scope" ';
+    if (scope) {
+      sql += "= $2::uuid";
+      params.push(scope);
+    } else {
+      sql += "IS NULL";
+    }
+
+    return query(sql, params)
       .then(function() {});
   }
 

@@ -309,6 +309,15 @@ class KeyManager {
       });
     }
 
+    /* ---------------------------------------------------------------------- *
+     * Prepare a V5 namespace UUID from the specified scope.                  *
+     * ---------------------------------------------------------------------- */
+
+    this.namespace = function namespace(scope) {
+      var uuid = scope ? new UUID(scope) : UUID.NULL;
+      return UUID.v5(uuid, key[ENCRYPTION_KEY]);
+    }
+
     // Freeze ourselves
     Object.freeze(this);
   }

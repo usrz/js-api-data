@@ -11,7 +11,7 @@ module.exports = function(grunt) {
     },
 
     mofu_report: {
-      dest: './report.html'
+      dest: './coverage.html'
     },
 
     simplemocha: {

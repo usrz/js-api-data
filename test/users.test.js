@@ -55,11 +55,11 @@ describe('Users', function() {
     users.create(domain.uuid, {email: "posix@example.org",
                                name: "Test User",
                                password: "password",
-                               user_name: "nouidgid"})
+                               posix_name: "nouidgid"})
       .then(function(created) {
         throw new Error('Nothing should have been created');
       }, function(error) {
-        expect(error.details[0].message).to.match(/"value" contains \[user_name\] without its required peers/);
+        expect(error.details[0].message).to.match(/"value" contains \[posix_name\] without its required peers/);
         expect(error.details[0].path).to.equal('value'); // value???
         done();
       })
@@ -70,14 +70,14 @@ describe('Users', function() {
     users.create(domain.uuid, {email: "posix@example.org",
                                name: "Test User",
                                password: "password",
-                               user_name: "my user",
+                               posix_name: "my user",
                                posix_uid: 0,
                                posix_gid: "grp"})
       .then(function(created) {
         throw new Error('Nothing should have been created');
       }, function(error) {
         expect(error.details.length).to.equal(3);
-        expect(error.details[0].path).to.equal('user_name');
+        expect(error.details[0].path).to.equal('posix_name');
         expect(error.details[1].path).to.equal('posix_uid');
         expect(error.details[2].path).to.equal('posix_gid');
         done();
@@ -89,7 +89,7 @@ describe('Users', function() {
     users.create(domain.uuid, { email: "test@example.org",
                                 name: " Test\r\nUser ",
                                 password: 'password',
-                                user_name: " Test_User ", // mixed case!
+                                posix_name: " Test_User ", // mixed case!
                                 posix_uid: 10000,
                                 posix_gid: 20000 })
       .then(function(created) {
@@ -98,7 +98,7 @@ describe('Users', function() {
           .then(function(attributes) {
             expect(attributes.name).to.equal("Test User"); // normalized
             expect(attributes.email).to.equal("test@example.org");
-            expect(attributes.user_name).to.equal("test_user"); // trimmed
+            expect(attributes.posix_name).to.equal("test_user"); // trimmed
             expect(attributes.posix_uid).to.equal(10000);
             expect(attributes.posix_gid).to.equal(20000);
             expect(attributes.password).to.not.exist;
@@ -224,15 +224,15 @@ describe('Users', function() {
       users.create(domain.uuid, { email: "testX@example.org",
                                   name: 'A Different User',
                                   password: 'password',
-                                  user_name: 'test_user',
+                                  posix_name: 'test_user',
                                   posix_uid: 10001,
                                   posix_gid: 10002 })
         .then(function(result) {
           throw new Error('Should have not been created');
         }, function(error) {
           // Duplicated by our existing user!
-          expect(error.duplicates.user_name).to.exist;
-          expect(error.duplicates.user_name.uuid).to.equal(user.uuid);
+          expect(error.duplicates.posix_name).to.exist;
+          expect(error.duplicates.posix_name.uuid).to.equal(user.uuid);
           done();
         })
         .catch(done);
@@ -297,12 +297,12 @@ describe('Users', function() {
             .then(function(attributes) {
               expect(attributes.email).to.equal("test1@example.org");
               // Just check...
-              expect(attributes.user_name).to.equal('test_user');
+              expect(attributes.posix_name).to.equal('test_user');
               expect(attributes.posix_uid).to.equal(10000);
               expect(attributes.posix_gid).to.equal(20000);
               return users.modify(user2.uuid, {
                   email: attributes.email,
-                  user_name: attributes.user_name.toUpperCase(), // case!
+                  posix_name: attributes.posix_name.toUpperCase(), // case!
                   posix_uid: attributes.posix_uid,
                   posix_gid: attributes.posix_gid
                 });

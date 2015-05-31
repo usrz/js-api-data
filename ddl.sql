@@ -248,7 +248,7 @@ CREATE VIEW available_objects AS
 -- | * ===================================================================== * |
 -- * ========================================================================= *
 
--- Index table, holding (uniquw) attribute values for each owner
+-- Index table, holding (unique) attribute values for each owner
 --
 -- scope      -> the key that groups all hashed values together (eg. domain)
 --               or "NULL" if this is a global (unscoped) attribute.
@@ -262,7 +262,7 @@ CREATE TABLE "objects_index" (
   "value"      UUID                     NOT NULL,
   "indexed_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
 
-  -- Foreign key references (those are not copied with LIKE)
+  -- Foreign key references
   FOREIGN KEY ("scope") REFERENCES "objects" ("uuid") ON DELETE CASCADE,
   FOREIGN KEY ("owner") REFERENCES "objects" ("uuid") ON DELETE CASCADE
 );
@@ -270,3 +270,16 @@ CREATE TABLE "objects_index" (
 -- Unique constraint for scope -> value
 CREATE UNIQUE INDEX ON "objects_index" (value)        WHERE "scope" IS     NULL;
 CREATE UNIQUE INDEX ON "objects_index" (value, scope) WHERE "scope" IS NOT NULL;
+
+-- Search table, like "objects_index" but allowing duplicates and always
+-- requiring a valid scope (does not allow NULL as its scope)
+CREATE TABLE "objects_search" (
+  LIKE "objects_index" INCLUDING CONSTRAINTS INCLUDING INDEXES,
+
+  -- Foreign key references (those are not copied with LIKE)
+  FOREIGN KEY ("scope") REFERENCES "objects" ("uuid") ON DELETE CASCADE,
+  FOREIGN KEY ("owner") REFERENCES "objects" ("uuid") ON DELETE CASCADE
+);
+
+-- Enforce non-NULLability on scope
+ALTER TABLE "objects_search" ALTER COLUMN "scope" SET NOT NULL;

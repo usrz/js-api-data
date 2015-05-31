@@ -6,8 +6,6 @@ const DbObject = require('./db-object');
 const UUID = require('./uuid');
 const util = require('util');
 
-const nil = UUID.NULL.toString();
-
 /* ========================================================================== *
  * INDEX ERROR, WHEN DUPLICATES ARE FOUND                                     *
  * ========================================================================== */
@@ -38,6 +36,7 @@ IndexError.prototype.name = 'IndexError';
  * ========================================================================== */
 
 const KEY_MANAGER = Symbol('key_manager');
+const NAMESPACE = Symbol('namespace');
 const CLIENT = Symbol('client');
 
 class DbIndex {
@@ -45,6 +44,20 @@ class DbIndex {
     if (!(keyManager instanceof KeyManager)) throw new Error('Invalid key manager');
     if (!(client instanceof DbClient)) throw new Error('Database client not specified or invalid');
 
+    // Simple function to get namespace from scope
+    this[NAMESPACE] = function namespace(scope) {
+      if (scope == null) {
+        return keyManager.namespace(UUID.NULL);
+      } else if (util.isString(scope)) {
+        return keyManager.namespace(scope);
+      } else if (scope instanceof DbObject) {
+        return keyManager.namespace(scope.uuid);
+      } else {
+        throw new Error("Scope must be a string or DbObject");
+      }
+    }
+
+    // Key manager and client
     this[KEY_MANAGER] = keyManager;
     this[CLIENT] = client;
   }
@@ -73,18 +86,19 @@ class DbIndex {
 
         // Compute ths madness for each attribute
         Object.keys(attributes).forEach(function (key) {
-          var value = attributes[key];
 
           // Don't index null values
-          if (value == null) return;
+          if (attributes[key] == null) return;
 
           // Calculate the V5 UUID value to check as a duplicate,
           // then to be inserted in the db, and finally returned
-          var value = UUID.v5(scope || nil, key + ":" + attributes[key]);
+          var namespace = self[NAMESPACE](scope);
+          var keyid = UUID.v5(namespace, key);
+          var value = UUID.v5(namespace, key + ":" + attributes[key]);
           values[key] = value;
           keys[value] = key;
 
-          // Calculate arguments and parameters for the insert query
+          // Calculate arguments and parameters for the index insert query
           var scope_pos = ins_params.push(scope);
           var owner_pos = ins_params.push(owner);
           var value_pos = ins_params.push(value);
@@ -147,9 +161,14 @@ class DbIndex {
   find(scope, key, value, query) {
     var self = this;
 
-    // NULL for invalud UUIDs
-    var namespace = scope ? UUID.validate(scope) : nil;
-    if (! namespace) return Promise.resolve(null);
+    // Get the protected namespace
+    var namespace;
+    try {
+      namespace = self[NAMESPACE](scope);
+    } catch (error) {
+      // Return null on invalid scopes
+      return Promise.resolve(null);
+    }
 
     // Connect to the DB if not already
     if (! query) return self[CLIENT].read(function(query) {
@@ -192,14 +211,13 @@ class DbIndex {
     var self = this;
 
     // Connect to the DB if not already
-    if (! query) return self[CLIENT].write(function(query) {
+    if (! query) return self[CLIENT].transaction(function(query) {
       return self.clear(scope, owner, query);
     });
 
     var params = [ owner ];
     var sql = 'DELETE FROM "objects_index"'
-            +      ' WHERE "owner" = $1::uuid'
-            +        ' AND "scope" ';
+            + ' WHERE "owner" = $1::uuid AND "scope" ';
     if (scope) {
       sql += "= $2::uuid";
       params.push(scope);

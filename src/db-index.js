@@ -158,6 +158,59 @@ class DbIndex {
   }
 
   /* ------------------------------------------------------------------------ *
+   * Find all owners having the specified attribute indexed                   *
+   * ------------------------------------------------------------------------ */
+  search(scope, key, query) {
+    var self = this;
+
+    // Get the protected namespace
+    var namespace;
+    try {
+      namespace = self[NAMESPACE](scope);
+    } catch (error) {
+      // Return null on invalid scopes
+      return Promise.resolve(null);
+    }
+
+    // Connect to the DB if not already
+    if (! query) return self[CLIENT].read(function(query) {
+      return self.search(scope, key, query);
+    });
+
+    // Wrap into a promise
+    return new Promise(function(resolve, reject) {
+
+        // Figure out how to query this puppy
+        var sql = 'SELECT "objects".*'
+                +  ' FROM "objects_index", "objects"'
+                + ' WHERE "objects"."uuid" = "objects_index"."owner"'
+                +   ' AND "keyid" = $1::uuid '
+                +   ' AND "scope"';
+
+        // Calculate the attribute V5 UUID
+        var params = [ UUID.v5(namespace, key) ];
+
+        // See about that NULL check
+        if (scope) {
+          sql += "= $2::uuid";
+          params.push(scope);
+        } else {
+          sql += "IS NULL";
+        }
+
+        // Let's see what we got...
+        resolve(query(sql, params)
+          .then(function(result) {
+            var objects = [];
+            if (result && result.rows) result.rows.forEach(function(row) {
+              objects.push(new DbObject(row, self[KEY_MANAGER]));
+            });
+            return objects;
+          }));
+    });
+  }
+
+  /* ------------------------------------------------------------------------ *
    * Find any owner matching the specified attribute in the given scope       *
    * ------------------------------------------------------------------------ */
   find(scope, key, value, query) {
@@ -172,6 +225,9 @@ class DbIndex {
       return Promise.resolve(null);
     }
 
+    // We never index NULL values
+    if (value == null) return Promise.resolve(null);
+
     // Connect to the DB if not already
     if (! query) return self[CLIENT].read(function(query) {
       return self.find(scope, key, value, query);
@@ -181,7 +237,8 @@ class DbIndex {
     return new Promise(function(resolve, reject) {
 
         // Figure out how to query this puppy
-        var sql = 'SELECT "objects".* FROM "objects_index", "objects"'
+        var sql = 'SELECT "objects".*'
+                +  ' FROM "objects_index", "objects"'
                 + ' WHERE "objects"."uuid" = "objects_index"."owner"'
                 +   ' AND "value" = $1::uuid '
                 +   ' AND "scope"';
@@ -197,7 +254,7 @@ class DbIndex {
           sql += "IS NULL";
         }
 
-        // Let's see what we get...
+        // Let's see what we got...
         resolve(query(sql, params)
           .then(function(result) {
             if ((! result) || (! result.rows) || (! result.rows[0])) return null;

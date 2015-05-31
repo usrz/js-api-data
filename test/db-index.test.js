@@ -5,7 +5,7 @@ const expect = require('chai').expect;
 const KeyManager = require('../src/key-manager');
 const DbIndex = require('../src/db-index');
 
-describe('Database Index', function() {
+describe.only('Database Index', function() {
 
   const scope1 = '125036e8-d182-41a4-ad65-2a06180e7fe0';
   const scope2 = '4656dada-b495-43e8-bdce-27f3aa2096e8';
@@ -139,6 +139,34 @@ describe('Database Index', function() {
         })
         .then(function(result) {
           expect(result).to.be.null;
+          done();
+        })
+        .catch(done);
+    });
+
+    it('should search the correct values', function(done) {
+      if (! ok) return this.skip();
+
+      index.search(scope1, "foo")
+        .then(function(result) {
+          expect(result.length).to.equal(2);
+          expect([ result[0].uuid, result[1].uuid ])
+            .to.include.members([ owner1, owner2 ]);
+          return index.search(scope1, "baz")
+        })
+        .then(function(result) {
+          expect(result.length).to.equal(2);
+          expect([ result[0].uuid, result[1].uuid ])
+            .to.include.members([ owner1, owner2 ]);
+          return index.search(scope2, "foo")
+        })
+        .then(function(result) {
+          expect(result.length).to.equal(1);
+          expect(result[0].uuid).to.equal(owner1);
+          return index.search(scope1, "bar")
+        })
+        .then(function(result) {
+          expect(result.length).to.equal(0);
           done();
         })
         .catch(done);

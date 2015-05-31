@@ -266,7 +266,7 @@ UUID.v3uuid = function v3uuid(namespace, name) {
   namespace = UUID(namespace);
   if (util.isString(name)) {
     name = new Buffer(name, 'utf8');
-  } else if (!util.isBuffer(buffer)) {
+  } else if (!util.isBuffer(name)) {
     throw new TypeError('Name must be a string or Buffer');
   }
 
@@ -297,7 +297,7 @@ UUID.v5uuid = function v5uuid(namespace, name) {
   namespace = UUID(namespace);
   if (util.isString(name)) {
     name = new Buffer(name, 'utf8');
-  } else if (!util.isBuffer(buffer)) {
+  } else if (!util.isBuffer(name)) {
     throw new TypeError('Name must be a string or Buffer');
   }
 

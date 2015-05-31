@@ -19,7 +19,7 @@ const validator = joi.object({
     salt: joi.string().min(20, 'base64').max(1024, 'base64'),
     hash: joi.string().regex(/^SHA-(256|384|512)$/)
   }),
-  user_name: joi.string().regex(/^[a-z_][a-z0-9_-]*\$?$/).trim().min(1).max(32),
+  user_name: joi.string().regex(/^[a-z_][a-z0-9\._-]*\$?$/).trim().lowercase().min(1).max(32),
   posix_uid: joi.number().integer().min(1).max(0x7FFFFFFF),
   posix_gid: joi.number().integer().min(1).max(0x7FFFFFFF),
 }).and('posix_uid', 'posix_gid', 'user_name');

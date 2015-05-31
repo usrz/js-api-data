@@ -89,7 +89,7 @@ describe('Users', function() {
     users.create(domain.uuid, { email: "test@example.org",
                                 name: " Test\r\nUser ",
                                 password: 'password',
-                                user_name: " test_user ",
+                                user_name: " Test_User ", // mixed case!
                                 posix_uid: 10000,
                                 posix_gid: 20000 })
       .then(function(created) {
@@ -302,7 +302,7 @@ describe('Users', function() {
               expect(attributes.posix_gid).to.equal(20000);
               return users.modify(user2.uuid, {
                   email: attributes.email,
-                  user_name: attributes.user_name,
+                  user_name: attributes.user_name.toUpperCase(), // case!
                   posix_uid: attributes.posix_uid,
                   posix_gid: attributes.posix_gid
                 });

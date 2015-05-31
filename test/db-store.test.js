@@ -4,6 +4,7 @@ const expect = require('chai').expect;
 const joi = require('joi');
 
 const KeyManager = require('../src/key-manager');
+const DbObject = require('../src/db-object');
 const DbStore = require('../src/db-store');
 
 describe('Database Store', function() {
@@ -31,6 +32,17 @@ describe('Database Store', function() {
     store = new DbStore(keyManager, testdb.client, validator);
   })
   after(testdb.after);
+
+  /* ------------------------------------------------------------------------ */
+
+  it('should always construct a valid object', function() {
+    expect(function() { new DbObject() })
+      .to.throw('No row for DB object');
+    expect(function() { new DbObject({}) })
+      .to.throw('No UUID for DB object');
+    expect(function() { new DbObject({ uuid: 'gonzo' }) })
+      .to.throw('No parent UUID for DB object');
+  });
 
   /* ------------------------------------------------------------------------ */
 

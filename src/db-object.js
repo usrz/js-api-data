@@ -36,8 +36,6 @@ class DbObject {
         if (decryption_key != null) return decryption_key.decrypt(self[ENCRYPTED_DATA]);
         throw new Error(`Key "${self[ENCRYPTION_KEY]}" unavailable for "${self.uuid}"`);
       })
-
-    return Promise.resolve(this.foo);
   }
 
   toString() {

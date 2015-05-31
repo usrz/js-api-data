@@ -11,7 +11,8 @@ module.exports = function(grunt) {
     },
 
     mofu_report: {
-      dest: './coverage.html'
+      dest: './coverage.html',
+      options: { threshold: 80 }
     },
 
     simplemocha: {

@@ -29,29 +29,13 @@ const CLIENT = Symbol('client');
 const STORE = Symbol('store');
 const INDEX = Symbol('index');
 
-class Users {
+class Users extends DbStore.Simple {
   constructor(keyManager, client) {
+    super(new DbStore(keyManager, client, validator), 'user');
     this[CLIENT] = client;
-    this[STORE] = new DbStore(keyManager, client, validator);
+    this[STORE] = this.store; // new DbStore(keyManager, client, validator);
     this[INDEX] = new DbIndex(keyManager, client);
     this[DOMAINS] = new Domains(keyManager, client);
-  }
-
-  get(uuid, include_deleted, query) {
-    var self = this;
-
-    // Optional parameter
-    if (util.isFunction(include_deleted)) {
-      query = include_deleted;
-      include_deleted = false;
-    }
-
-    // Potentially, this might be called from a transaction
-    if (! query) return self[CLIENT].read(function(query) {
-      return self.get(uuid, include_deleted, query);
-    });
-
-    return this[STORE].select(uuid, 'user', include_deleted, query);
   }
 
   find(email, query) {

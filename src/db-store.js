@@ -10,7 +10,6 @@ const joi = require('joi');
 
 // Symbols for our private properties
 const KEY_MANAGER    = Symbol('key_manager');
-const DELETE_SQL     = Symbol('delete_sql');
 const VALIDATE       = Symbol('validate');
 const CLIENT         = Symbol('client');
 
@@ -49,9 +48,9 @@ function merge(one, two) {
 }
 
 // Get the UUID string from a DBObject, string, or UUID
-function validate(what) {
+function to_uuid(what) {
   if (! what) return null;
-  if (what instanceof DbObject) return what.uuid;
+  if (what instanceof DbObject) return UUID.validate(what.uuid);
   if (what instanceof UUID) return uuid.toString();
   if (util.isString(what)) return UUID.validate(what);
   return null;
@@ -89,7 +88,6 @@ class DbStore {
      * ---------------------------------------------------------------------- */
 
     this[KEY_MANAGER] = keyManager;
-    this[DELETE_SQL] = 'UPDATE "objects" SET "deleted_at" = NOW() WHERE "uuid" = $1::uuid RETURNING *';
     this[VALIDATE] = validate;
     this[CLIENT] = client;
 
@@ -103,7 +101,7 @@ class DbStore {
     var self = this;
 
     // Null for invalid UUIDs
-    uuid = validate(uuid);
+    uuid = to_uuid(uuid);
     if (! uuid) return Promise.resolve(null);
 
     // Check for optional parameters
@@ -154,7 +152,7 @@ class DbStore {
     var self = this;
 
     // Null for invalid UUIDs
-    parent = validate(parent);
+    parent = to_uuid(parent);
     if (! parent) return Promise.resolve({});
 
     // Check for optional parameters
@@ -224,7 +222,7 @@ class DbStore {
           // Validate parent UUID
           var uuid = parent;
           if (uuid != null) {
-            uuid = validate(parent);
+            uuid = to_uuid(parent);
             if (uuid == null) {
               throw new Error('Invalid parent "' + parent + "'");
             }
@@ -283,7 +281,7 @@ class DbStore {
     var self = this;
 
     // Null for invalid UUIDs
-    uuid = validate(uuid);
+    uuid = to_uuid(uuid);
     if (! uuid) return Promise.resolve(null);
 
     if (! query) return self[CLIENT].write(function(query) {
@@ -298,7 +296,39 @@ class DbStore {
 }
 
 /* ========================================================================== *
+ * "SIMPLE" STORE                                                             *
+ * ========================================================================== */
+
+class Simple {
+  constructor(store, kind) {
+    Object.defineProperties(this, {
+      "client": { enumerable: false, configurable: false, value: store[CLIENT] },
+      "store":  { enumerable: false, configurable: false, value: store },
+      "kind":   { enumerable: false, configurable: false, value: kind  },
+    });
+  }
+
+  get(uuid, include_deleted, query) {
+    var self = this;
+
+    // Optional parameter
+    if (util.isFunction(include_deleted)) {
+      query = include_deleted;
+      include_deleted = false;
+    }
+
+    // Potentially, this might be called from a transaction
+    if (! query) return this.client.read(function(query) {
+      return self.get(uuid, include_deleted, query);
+    });
+
+    return this.store.select(uuid, this.kind, include_deleted, query);
+  }
+}
+
+/* ========================================================================== *
  * EXPORTS                                                                    *
  * ========================================================================== */
 
+DbStore.Simple = Simple;
 exports = module.exports = DbStore;

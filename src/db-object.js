@@ -9,6 +9,7 @@ const KeyManager = require('./key-manager');
 const ENCRYPTION_KEY = Symbol('encryption_key');
 const ENCRYPTED_DATA = Symbol('encrypted_data');
 const KEY_MANAGER    = Symbol('key_manager');
+const ATTRIBUTES     = Symbol('attributes');
 
 class DbObject {
   constructor (row, keyManager) {
@@ -31,10 +32,17 @@ class DbObject {
 
   attributes() {
     var self = this;
+
+    if (self[ATTRIBUTES] != null) return Promise.resolve(self[ATTRIBUTES]);
+
     return self[KEY_MANAGER].get(self[ENCRYPTION_KEY])
       .then(function(decryption_key) {
         if (decryption_key != null) return decryption_key.decrypt(self[ENCRYPTED_DATA]);
         throw new Error(`Key "${self[ENCRYPTION_KEY]}" unavailable for "${self.uuid}"`);
+      })
+      .then(function(attributes) {
+        self[ATTRIBUTES] = attributes;
+        return attributes;
       })
   }
 

@@ -8,7 +8,7 @@ const Domains = require('./domains');
 const util = require('util');
 const joi = require('joi');
 
-const validator = joi.object({
+const schema = joi.object({
   name: joi.string().required().replace(/\s+/g, ' ').trim().min(1).max(1024),
   email: joi.string().required().email().max(1024),
   credentials: joi.object({
@@ -31,11 +31,59 @@ const INDEX = Symbol('index');
 
 class Users extends DbStore.Simple {
   constructor(keyManager, client) {
-    super(new DbStore(keyManager, client, validator), 'user');
+
+    // Local variables for the constructor
+    var store = new DbStore(keyManager, client, validate, indexer);
+    var index = new DbIndex(keyManager, client);
+    var self = super(store, 'user');
+
+    // A function that will validate the attributes
+    function validate(attributes, query) {
+
+      // Convert any password to credentials
+      if (attributes.password) {
+        attributes.credentials = new Credentials(attributes.password);
+        delete attributes.password;
+      }
+
+      // Find the parent, must be a domain (not deleted)
+      try {
+        var result = joi.validate(attributes, schema, {abortEarly: false});
+        if (result.error) return Promise.reject(result.error);
+        return Promise.resolve(result.value);
+      } catch (error) {
+        return Promise.reject(error)
+      }
+    }
+
+    // A function that will index the attributes
+    function indexer(attributes, query, object) {
+
+      // Index email in "null" (global) scope
+      var promise = index.index(null, object.uuid, { email: attributes.email }, query);
+      if (! attributes.posix_name) return promise;
+
+      // Optionally index all POSIX attributes
+      return Promise.all([ promise,
+        index.index(object.parent, object.uuid, {
+            posix_name: attributes.posix_name,
+            posix_uid: attributes.posix_uid,
+            posix_gid: attributes.posix_gid
+          }, query)
+        ]);
+    }
+
+
+
+
     this[CLIENT] = client;
-    this[STORE] = this.store; // new DbStore(keyManager, client, validator);
-    this[INDEX] = new DbIndex(keyManager, client);
+    this[STORE] = store;
+    this[INDEX] = index;
     this[DOMAINS] = new Domains(keyManager, client);
+  }
+
+  toString() {
+    return "[object Users]";
   }
 
   find(email, query) {
@@ -69,46 +117,12 @@ class Users extends DbStore.Simple {
       .then(function(domain_object) {
         if (! domain_object) return null;
 
-        // Should we convert a password to credentials?
-        if (attributes.password) {
-          attributes.credentials = new Credentials(attributes.password);
-          delete attributes.password;
-        }
-
-        // Insert the user
-        return self[STORE].insert('user', domain, attributes, query)
-          .then(function(user) {
-            if (! user) throw new Error('No user was created');
-
-            // Index email address and return the user we created
-            return user.attributes()
-              .then(function(attributes) {
-                var promises = []
-                promises.push(self[INDEX].index(null, user.uuid, { email: attributes.email }, query));
-                if (attributes.posix_name) {
-                  promises.push(self[INDEX].index(user.parent, user.uuid, {
-                      posix_name: attributes.posix_name,
-                      posix_uid: attributes.posix_uid,
-                      posix_gid: attributes.posix_gid
-                    }, query));
-                }
-                return Promise.all(promises);
-              })
-              .then(function(indexed) {
-                return user;
-              })
-          });
+        return self[STORE].insert('user', domain, attributes, query);
       });
   }
 
   modify(uuid, attributes, query) {
     var self = this;
-
-    // Should we convert a password to credentials?
-    if (attributes.password) {
-      attributes.credentials = new Credentials(attributes.password);
-      delete attributes.password;
-    }
 
     // Execute all in a transaction (if one was not specified)
     if (! query) return self[CLIENT].transaction(function(query) {
@@ -117,37 +131,8 @@ class Users extends DbStore.Simple {
 
     // Modify the user
     return self[STORE].update(uuid, attributes, query)
-      .then(function(user) {
-        if (! user) throw new Error('No user was modified');
-
-        // Re-index email address and return the updated user
-        return user.attributes()
-          .then(function(attributes) {
-            return Promise.all([
-              self[INDEX].index(null, user.uuid, { email: attributes.email }, query),
-              self[INDEX].index(user.parent, user.uuid, {
-                  posix_name: attributes.posix_name,
-                  posix_uid: attributes.posix_uid,
-                  posix_gid: attributes.posix_gid
-                }, query)
-              ]);
-          })
-          .then(function(indexed) {
-            return user;
-          });
-      })
   }
 
-  delete(uuid, query) {
-    var self = this;
-
-    // Execute all in a transaction (if one was not specified)
-    if (! query) return self[CLIENT].transaction(function(query) {
-      return self.delete(uuid, query);
-    });
-
-    return this[STORE].delete(uuid, query);
-  }
 }
 
 exports = module.exports = Users;

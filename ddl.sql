@@ -221,7 +221,7 @@ CREATE TABLE "deleted_objects" (
 );
 
 -- No updates, or deletions, never!
-CREATE TRIGGER "encryption_keys_protect" BEFORE UPDATE OR DELETE ON "deleted_objects"
+CREATE TRIGGER "deleted_objects_protect" BEFORE UPDATE OR DELETE ON "deleted_objects"
   FOR EACH ROW EXECUTE PROCEDURE "fn_prevent_trigger" ();
 
 -- =============================================================================
@@ -244,7 +244,7 @@ CREATE VIEW available_objects AS
 
 -- * ========================================================================= *
 -- | * ===================================================================== * |
--- | | INDEX TABLES                                                          | |
+-- | | INDEX TABLE                                                           | |
 -- | * ===================================================================== * |
 -- * ========================================================================= *
 
@@ -271,3 +271,29 @@ CREATE TABLE "objects_index" (
 -- Unique constraint for scope -> value
 CREATE UNIQUE INDEX ON "objects_index" (value)        WHERE "scope" IS     NULL;
 CREATE UNIQUE INDEX ON "objects_index" (value, scope) WHERE "scope" IS NOT NULL;
+
+
+-- * ========================================================================= *
+-- | * ===================================================================== * |
+-- | | MEMBERSHIP TABLE                                                      | |
+-- | * ===================================================================== * |
+-- * ========================================================================= *
+
+-- Membership table, holding parent->child relationships between objects
+--
+-- parent     -> the parent of the relationship (eg, domain or group)
+-- object     -> the object (a user if parent is domain or group)
+-- linked_at  -> when the membership was established.
+--
+CREATE TABLE "objects_members" (
+  "parent"    UUID                     NOT NULL,
+  "object"    UUID                     NOT NULL,
+  "linked_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+
+  -- Foreign key references
+  FOREIGN KEY ("parent") REFERENCES "objects" ("uuid") ON DELETE CASCADE,
+  FOREIGN KEY ("object") REFERENCES "objects" ("uuid") ON DELETE CASCADE,
+
+  -- Primary key
+  PRIMARY KEY ("parent", "object")
+);

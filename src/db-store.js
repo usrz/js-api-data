@@ -5,6 +5,7 @@ const DbClient = require('./db-client');
 const DbObject = require('./db-object');
 const UUID = require('./uuid');
 
+const EventEmitter = require('events').EventEmitter;
 const util = require('util');
 const joi = require('joi');
 
@@ -12,6 +13,7 @@ const joi = require('joi');
 const KEY_MANAGER    = Symbol('key_manager');
 const VALIDATE       = Symbol('validate');
 const CLIENT         = Symbol('client');
+const INDEX          = Symbol('index');
 
 /* ========================================================================== */
 
@@ -60,10 +62,9 @@ function to_uuid(what) {
  * DB STORE CLASS                                                             *
  * ========================================================================== */
 
-const HACK = 'domain';
-
-class DbStore {
-  constructor(keyManager, client, schema) {
+class DbStore extends EventEmitter {
+  constructor(keyManager, client, schema, indexer) {
+    super();
 
     // Validate key manager
     if (!(keyManager instanceof KeyManager)) throw new Error('Invalid key manager');
@@ -72,16 +73,49 @@ class DbStore {
     if (!(client instanceof DbClient)) throw new Error('Database client not specified or invalid');
 
     // Check schema
+    var self = this;
     var validate;
-    if (! schema) validate = function(object) { return object };
-    else if (typeof(schema) === 'function') validate = schema;
-    else if ((typeof(schema) === 'object') && (schema.isJoi === true)) {
-      validate = function(object) {
-        var result = joi.validate(object, schema, {abortEarly: false});
-        if (result.error) throw result.error;
-        return result.value;
-      };
+    if (! schema) validate = function(object) { return Promise.resolve(object) };
+    else if (typeof(schema) === 'function') {
+
+      validate = function(attributes, query) {
+        try {
+          var result = schema.call(self, attributes, query);
+          if (! result) return Promise.resolve(attributes);
+          if (util.isFunction(result.then)) return result;
+          return Promise.resolve(result);
+        } catch (error) {
+          return Promise.reject(error);
+        }
+      }
+
+    } else if ((typeof(schema) === 'object') && (schema.isJoi === true)) {
+      validate = function(object, query) {
+        try {
+          var result = joi.validate(object, schema, {abortEarly: false});
+          if (result.error) return Promise.reject(result.error);
+          return Promise.resolve(result.value);
+        } catch (error) {
+          return Promise.reject(error)
+        }
+      }
+
     } else throw new Error('Schema must be a validation function or Joi schema');
+
+    //
+    var index = null;
+    if (! indexer) index = function() { return Promise.resolve(null) }
+    else if (util.isFunction(indexer)) {
+      index = function(attributes, query, object) {
+        try {
+          var result = indexer.call(self, attributes, query, object);
+          return Promise.resolve(result);
+        } catch (error) {
+          return Promise.reject(error);
+        }
+      }
+    }
+    else throw new Error("Sorry, matey!!!");
 
     /* ---------------------------------------------------------------------- *
      * Remember our instance variables                                        *
@@ -90,7 +124,12 @@ class DbStore {
     this[KEY_MANAGER] = keyManager;
     this[VALIDATE] = validate;
     this[CLIENT] = client;
+    this[INDEX] = index;
 
+  }
+
+  toString() {
+    return "[object DbStore]";
   }
 
   /* ------------------------------------------------------------------------ *
@@ -211,31 +250,51 @@ class DbStore {
       return self.insert(kind, parent, attributes, query);
     });
 
-    return new Promise(function (resolve, reject) {
-      resolve(self[KEY_MANAGER].encrypt(self[VALIDATE](merge({}, attributes)))
-        .then(function(encrypted) {
+    // Wrap in a promise, for exceptions
+    return Promise.resolve(attributes)
 
-          var sql = 'INSERT INTO "objects" '
-                  + '("kind", "parent", "encryption_key", "encrypted_data") VALUES'
-                  + '($1::kind, $2::uuid, $3::uuid, $4::bytea) RETURNING *';
+      // Merge with empty (IOW copy) and validate
+      .then(function(attributes) {
+        var merged = merge({}, attributes);
+        return self[VALIDATE](merged);
+      })
 
-          // Validate parent UUID
-          var uuid = parent;
-          if (uuid != null) {
-            uuid = to_uuid(parent);
-            if (uuid == null) {
-              throw new Error('Invalid parent "' + parent + "'");
-            }
+      // Encrypt attributes
+      .then(function(validated) {
+        return self[KEY_MANAGER].encrypt(validated);
+      })
+
+      // Insert into the DB
+      .then(function(encrypted) {
+
+        var sql = 'INSERT INTO "objects" '
+                + '("kind", "parent", "encryption_key", "encrypted_data") VALUES'
+                + '($1::kind, $2::uuid, $3::uuid, $4::bytea) RETURNING *';
+
+        // Validate parent UUID
+        var uuid = parent;
+        if (uuid != null) {
+          uuid = to_uuid(parent);
+          if (uuid == null) {
+            throw new Error('Invalid parent "' + parent + "'");
           }
+        }
 
-          // Call the DB
-          return query(sql, kind, uuid, encrypted.key, encrypted.data)
-            .then(function(result) {
-              if ((! result) || (! result.rows) || (! result.rows[0])) return null;
-              return new DbObject(result.rows[0], self[KEY_MANAGER]);
-            });
-        }));
-    });
+        return query(sql, kind, uuid, encrypted.key, encrypted.data);
+      })
+
+      // Wrap the DB returned row
+      .then(function(result) {
+        if ((! result) || (! result.rows) || (! result.rows[0])) return null;
+        var object = new DbObject(result.rows[0], self[KEY_MANAGER]);
+        return object.attributes()
+          .then(function(attributes) {
+            return self[INDEX](attributes, query, object);
+          })
+          .then(function(whatever) {
+            return object;
+          })
+      });
   }
 
   /* ------------------------------------------------------------------------ *
@@ -249,15 +308,28 @@ class DbStore {
       return self.update(uuid, attributes, query);
     });
 
+    // Attempt to get the record
     return self.select(uuid, query)
       .then(function(result) {
+
+        // Return null instead of throwing (send 404 at the end rather than 500)
         if (! result) return null;
 
-        // Resolve (decrypt) old attributes, merge, validate then encrypt...
+        // Decrypt the attributes in a sub-promise
         return result.attributes()
-          .then(function(old_attr) {
-            return self[KEY_MANAGER].encrypt(self[VALIDATE](merge(old_attr, attributes)))
+
+          // Merge, then validate the new attributes
+          .then(function(previous) {
+            var merged = merge(previous, attributes);
+            return self[VALIDATE](merged, query);
           })
+
+          // Encrypt the new attributes
+          .then(function(validated) {
+            return self[KEY_MANAGER].encrypt(validated);
+          })
+
+          // Insert into the database
           .then(function(encrypted) {
 
             var sql = 'UPDATE "objects" SET '
@@ -268,7 +340,14 @@ class DbStore {
             return query(sql, uuid, encrypted.key, encrypted.data)
               .then(function(result) {
                 if ((! result) || (! result.rows) || (! result.rows[0])) return null;
-                return new DbObject(result.rows[0], self[KEY_MANAGER]);
+                var object = new DbObject(result.rows[0], self[KEY_MANAGER]);
+                return object.attributes()
+                  .then(function(attributes) {
+                    return self[INDEX](attributes, query, object);
+                  })
+                  .then(function(whatever) {
+                    return object;
+                  })
               });
           });
       });
@@ -324,6 +403,18 @@ class Simple {
 
     return this.store.select(uuid, this.kind, include_deleted, query);
   }
+
+  delete(uuid, query) {
+    var self = this;
+
+    // Execute all in a transaction (if one was not specified)
+    if (! query) return this.client.transaction(function(query) {
+      return self.delete(uuid, query);
+    });
+
+    return this.store.delete(uuid, query);
+  }
+
 }
 
 /* ========================================================================== *

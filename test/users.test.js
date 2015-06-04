@@ -33,7 +33,9 @@ describe('Users', function() {
   it('should not create with an invalid domain', function(done) {
     users.create('4b46e47d-e3ca-4ed5-a9ba-952359f4374d', {email: "test@example.org"})
       .then(function(created) {
-        expect(created).to.be.null;
+        throw new Error('Nothing should have been created');
+      }, function(error) {
+        expect(error.message).to.equal('Invalid parent 4b46e47d-e3ca-4ed5-a9ba-952359f4374d');
         done();
       })
       .catch(done);

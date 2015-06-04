@@ -3,7 +3,6 @@
 const Credentials = require('./credentials');
 const DbStore = require('./db-store');
 const DbIndex = require('./db-index');
-const Domains = require('./domains');
 
 const util = require('util');
 const joi = require('joi');
@@ -24,7 +23,6 @@ const schema = joi.object({
   posix_gid: joi.number().integer().min(1).max(0x7FFFFFFF),
 }).and('posix_uid', 'posix_gid', 'posix_name');
 
-const DOMAINS = Symbol('domains');
 const CLIENT = Symbol('client');
 const STORE = Symbol('store');
 const INDEX = Symbol('index');
@@ -38,22 +36,28 @@ class Users extends DbStore.Simple {
     var self = super(store, 'user');
 
     // A function that will validate the attributes
-    function validate(attributes, query) {
+    function validate(attributes, query, parent) {
 
-      // Convert any password to credentials
-      if (attributes.password) {
-        attributes.credentials = new Credentials(attributes.password);
-        delete attributes.password;
-      }
+      // First of all validate the parent!
+      return store.select(parent, 'domain', false, query)
+        .then(function(result) {
+          if (! result) throw new Error("Invalid parent " + parent);
 
-      // Find the parent, must be a domain (not deleted)
-      try {
-        var result = joi.validate(attributes, schema, {abortEarly: false});
-        if (result.error) return Promise.reject(result.error);
-        return Promise.resolve(result.value);
-      } catch (error) {
-        return Promise.reject(error)
-      }
+          // Convert any password to credentials
+          if (attributes.password) {
+            attributes.credentials = new Credentials(attributes.password);
+            delete attributes.password;
+          }
+
+          // Find the parent, must be a domain (not deleted)
+          try {
+            var result = joi.validate(attributes, schema, {abortEarly: false});
+            if (result.error) return Promise.reject(result.error);
+            return Promise.resolve(result.value);
+          } catch (error) {
+            return Promise.reject(error)
+          }
+        })
     }
 
     // A function that will index the attributes
@@ -73,17 +77,10 @@ class Users extends DbStore.Simple {
         ]);
     }
 
-
-
-
+    // Remember those for the methods below
     this[CLIENT] = client;
     this[STORE] = store;
     this[INDEX] = index;
-    this[DOMAINS] = new Domains(keyManager, client);
-  }
-
-  toString() {
-    return "[object Users]";
   }
 
   find(email, query) {
@@ -100,37 +97,6 @@ class Users extends DbStore.Simple {
 
   domain(domain, include_deleted, query) {
     return this[STORE].parent(domain, 'user', include_deleted, query);
-  }
-
-  create(domain, attributes, query) {
-    var self = this;
-
-    // Execute all in a transaction (if one was not specified)
-    if (! query) return self[CLIENT].transaction(function(query) {
-      return self.create(domain, attributes, query);
-    });
-
-    // Start checking if we have the domain
-    return self[DOMAINS].get(domain, query)
-
-      // Do we have the correct domain?
-      .then(function(domain_object) {
-        if (! domain_object) return null;
-
-        return self[STORE].insert('user', domain, attributes, query);
-      });
-  }
-
-  modify(uuid, attributes, query) {
-    var self = this;
-
-    // Execute all in a transaction (if one was not specified)
-    if (! query) return self[CLIENT].transaction(function(query) {
-      return self.modify(uuid, attributes, query);
-    });
-
-    // Modify the user
-    return self[STORE].update(uuid, attributes, query)
   }
 
 }

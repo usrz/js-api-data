@@ -78,9 +78,9 @@ class DbStore extends EventEmitter {
     if (! schema) validate = function(object) { return Promise.resolve(object) };
     else if (typeof(schema) === 'function') {
 
-      validate = function(attributes, query) {
+      validate = function(attributes, query, parent) {
         try {
-          var result = schema.call(self, attributes, query);
+          var result = schema.call(self, attributes, query, parent);
           if (! result) return Promise.resolve(attributes);
           if (util.isFunction(result.then)) return result;
           return Promise.resolve(result);
@@ -256,7 +256,7 @@ class DbStore extends EventEmitter {
       // Merge with empty (IOW copy) and validate
       .then(function(attributes) {
         var merged = merge({}, attributes);
-        return self[VALIDATE](merged);
+        return self[VALIDATE](merged, query, parent);
       })
 
       // Encrypt attributes
@@ -321,7 +321,7 @@ class DbStore extends EventEmitter {
           // Merge, then validate the new attributes
           .then(function(previous) {
             var merged = merge(previous, attributes);
-            return self[VALIDATE](merged, query);
+            return self[VALIDATE](merged, query, result.parent);
           })
 
           // Encrypt the new attributes
@@ -414,6 +414,30 @@ class Simple {
 
     return this.store.delete(uuid, query);
   }
+
+  create(parent, attributes, query) {
+    var self = this;
+
+    // Execute all in a transaction (if one was not specified)
+    if (! query) return this.client.transaction(function(query) {
+      return self.create(parent, attributes, query);
+    });
+
+    return this.store.insert(this.kind, parent, attributes, query);
+  }
+
+  modify(uuid, attributes, query) {
+    var self = this;
+
+    // Execute all in a transaction (if one was not specified)
+    if (! query) return this.client.transaction(function(query) {
+      return self.modify(uuid, attributes, query);
+    });
+
+    // Modify the user
+    return this.store.update(uuid, attributes, query)
+  }
+
 
 }
 

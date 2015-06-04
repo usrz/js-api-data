@@ -7,7 +7,6 @@ const UUID = require('./uuid');
 
 const EventEmitter = require('events').EventEmitter;
 const util = require('util');
-const joi = require('joi');
 
 // Symbols for our private properties
 const KEY_MANAGER    = Symbol('key_manager');
@@ -80,7 +79,7 @@ class DbStore extends EventEmitter {
 
       validate = function(attributes, query, parent) {
         try {
-          var result = schema.call(self, attributes, query, parent);
+          var result = schema(attributes, query, parent);
           if (! result) return Promise.resolve(attributes);
           if (util.isFunction(result.then)) return result;
           return Promise.resolve(result);
@@ -89,18 +88,8 @@ class DbStore extends EventEmitter {
         }
       }
 
-    } else if ((typeof(schema) === 'object') && (schema.isJoi === true)) {
-      validate = function(object, query) {
-        try {
-          var result = joi.validate(object, schema, {abortEarly: false});
-          if (result.error) return Promise.reject(result.error);
-          return Promise.resolve(result.value);
-        } catch (error) {
-          return Promise.reject(error)
-        }
-      }
-
-    } else throw new Error('Schema must be a validation function or Joi schema');
+    }
+    else throw new Error('Schema must be a validation function or Joi schema');
 
     //
     var index = null;
@@ -108,7 +97,8 @@ class DbStore extends EventEmitter {
     else if (util.isFunction(indexer)) {
       index = function(attributes, query, object) {
         try {
-          var result = indexer.call(self, attributes, query, object);
+          var result = indexer(attributes, query, object);
+          if (util.isFunction(result.then)) return result;
           return Promise.resolve(result);
         } catch (error) {
           return Promise.reject(error);
@@ -398,7 +388,7 @@ class Simple {
 
     // Potentially, this might be called from a transaction
     if (! query) return this.client.read(function(query) {
-      return self.get(uuid, include_deleted, query);
+      return self.store.select(uuid, self.kind, include_deleted, query);
     });
 
     return this.store.select(uuid, this.kind, include_deleted, query);
@@ -409,7 +399,7 @@ class Simple {
 
     // Execute all in a transaction (if one was not specified)
     if (! query) return this.client.transaction(function(query) {
-      return self.delete(uuid, query);
+      return self.store.delete(uuid, query);
     });
 
     return this.store.delete(uuid, query);
@@ -420,7 +410,7 @@ class Simple {
 
     // Execute all in a transaction (if one was not specified)
     if (! query) return this.client.transaction(function(query) {
-      return self.create(parent, attributes, query);
+      return self.store.insert(self.kind, parent, attributes, query);
     });
 
     return this.store.insert(this.kind, parent, attributes, query);
@@ -431,7 +421,7 @@ class Simple {
 
     // Execute all in a transaction (if one was not specified)
     if (! query) return this.client.transaction(function(query) {
-      return self.modify(uuid, attributes, query);
+      return self.store.update(uuid, attributes, query);
     });
 
     // Modify the user

@@ -3,32 +3,25 @@
 const DbStore = require('./db-store');
 const joi = require('joi');
 
-const validator = joi.object({
+const schema = joi.object({
     name: joi.string().required().replace(/\s+/g, ' ').trim().min(1).max(1024),
     domain_name: joi.string().required().regex(/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i)
 });
 
-const STORE = Symbol('store');
-
-class Domains {
+class Domains extends DbStore.Simple {
   constructor(keyManager, client) {
-    this[STORE] = new DbStore(keyManager, client, validator);
-  }
+    super(new DbStore(keyManager, client, validator), 'domain');
 
-  get(uuid, include_deleted, query) {
-    return this[STORE].select(uuid, 'domain', include_deleted, query);
+    function validator(attributes, query, parent) {
+      var result = joi.validate(attributes, schema, { abortEarly: false });
+      if (result.error) return Promise.reject(result.error);
+      return result.value;
+    }
+
   }
 
   create(attributes, query) {
-    return this[STORE].insert('domain', null, attributes, query);
-  }
-
-  modify(uuid, attributes, query) {
-    return this[STORE].update(uuid, attributes, query);
-  }
-
-  delete(uuid, query) {
-    return this[STORE].delete(uuid, query);
+    return super.create(null, attributes, query);
   }
 }
 

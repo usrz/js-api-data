@@ -25,10 +25,14 @@ describe('Database Store', function() {
   before(function() {
     var masterKey = new Buffer(32).fill(0);
     var keyManager = new KeyManager(masterKey, testdb.client);
-    var validator = joi.object({
+    var schema = joi.object({
       invalid_key: joi.any().forbidden()
     }).unknown(true);
-
+    var validator = function(attributes, query, parent) {
+      var result = joi.validate(attributes, schema, { abortEarly: false });
+      if (result.error) return Promise.reject(result.error);
+      return result.value;
+    }
     store = new DbStore(keyManager, testdb.client, validator);
   })
   after(testdb.after);

@@ -23,20 +23,18 @@ const schema = joi.object({
   posix_gid: joi.number().integer().min(1).max(0x7FFFFFFF),
 }).and('posix_uid', 'posix_gid', 'posix_name');
 
-const CLIENT = Symbol('client');
-const STORE = Symbol('store');
 const INDEX = Symbol('index');
 
 class Users extends DbStore.Simple {
   constructor(keyManager, client) {
 
     // Local variables for the constructor
-    var store = new DbStore(keyManager, client, validate, indexer);
+    var store = new DbStore(keyManager, client, validator, indexer);
     var index = new DbIndex(keyManager, client);
     var self = super(store, 'user');
 
     // A function that will validate the attributes
-    function validate(attributes, query, parent) {
+    function validator(attributes, query, parent) {
 
       // First of all validate the parent!
       return store.select(parent, 'domain', false, query)
@@ -78,8 +76,6 @@ class Users extends DbStore.Simple {
     }
 
     // Remember those for the methods below
-    this[CLIENT] = client;
-    this[STORE] = store;
     this[INDEX] = index;
   }
 
@@ -87,7 +83,7 @@ class Users extends DbStore.Simple {
     var self = this;
 
     // Potentially, this might be called from a transaction
-    if (! query) return self[CLIENT].read(function(query) {
+    if (! query) return this.client.read(function(query) {
       return self.find(email, query);
     });
 
@@ -96,7 +92,7 @@ class Users extends DbStore.Simple {
   }
 
   domain(domain, include_deleted, query) {
-    return this[STORE].parent(domain, 'user', include_deleted, query);
+    return this.store.parent(domain, 'user', include_deleted, query);
   }
 
 }

@@ -1,0 +1,18 @@
+{
+    "ecmaFeatures": {
+        "classes": true,
+        "blockBindings": true,
+        "superInFunctions": true,
+        "templateStrings": true
+    },
+    "env": {
+        "node": true
+    },
+    "rules": {
+        "camelcase": [1, {"properties": "never"}],
+        "curly": [1, "multi-line"],
+        "no-use-before-define": [1, "nofunc"],
+        "quotes": [1, "single"],
+        "space-unary-ops": [1, { "words": false, "nonwords": true }]
+    }
+}

@@ -3,7 +3,7 @@
 var expect = require('chai').expect;
 var UUID = require('../src/uuid');
 
-describe('UUID', function() {
+describe.only('UUID', function() {
 
   describe('UUID class', function() {
 
@@ -196,7 +196,7 @@ describe('UUID', function() {
       expect(uuid.variant).to.equal('RFC-4122');
       expect(uuid.version).to.equal(2);
       expect(string).to.match(new RegExp('^0*' + process.getuid().toString(16) + '-'));
-      expect(uuid._buffer[9]).to.equal(0);
+      expect(uuid.toBuffer()[9]).to.equal(0);
     });
 
     it('should create a V2 UUID with a specified group ID, type and MAC address', function() {
@@ -206,7 +206,7 @@ describe('UUID', function() {
       expect(uuid.toString()).to.equal(string);
       expect(uuid.variant).to.equal('RFC-4122');
       expect(uuid.version).to.equal(2);
-      expect(uuid._buffer[9]).to.equal(1);
+      expect(uuid.toBuffer()[9]).to.equal(1);
       expect(string).to.match(/^12345678-....-....-....-010203040506$/);
     });
 

@@ -13,7 +13,7 @@ var emac = /^[0-9a-f]+:[0-9a-f]+:[0-9a-f]+:[0-9a-f]+:[0-9a-f]+:[0-9a-f]+$/i;
 /* UUID CLASS                                                                 */
 /* ========================================================================== */
 
-//const BUFFER = new Symbol('buffer');
+const BUFFER = Symbol('buffer');
 
 function UUID(data) {
   // Called as a function
@@ -32,7 +32,7 @@ function UUID(data) {
     if (! expr.test(data)) throw new TypeError('Incorrectly formatted UUID string');
     buffer = new Buffer(data.replace(/-/g, ''), 'hex');
   } else if (data instanceof UUID) {
-    buffer = data._buffer;
+    buffer = data[BUFFER];
   } else if (data) {
     throw new TypeError('Unable to construct UUID from ' + typeof(data));
   } else {
@@ -48,7 +48,9 @@ function UUID(data) {
     version = buffer[6] >> 4;
   }
 
-  // Immutable properties
+  // UUID immutable/hidden properties
+  this[BUFFER] = buffer;
+
   Object.defineProperties(this, {
     '_buffer': {
       enumerable:   false,
@@ -79,7 +81,7 @@ UUID.prototype.coerceRFC = function coerceRFC(version) {
   }
 
   // We need to mangle either variant, or version, or both...
-  var buffer = this._buffer;
+  var buffer = this.toBuffer(); // clone
 
   // Variant coercion
   buffer[8] = (buffer[8] & 0x3F) | 0x80;
@@ -96,40 +98,44 @@ UUID.prototype.coerceRFC = function coerceRFC(version) {
 /* ========================================================================== */
 
 UUID.prototype.and = function and(uuid) {
-  var buffer1 = this._buffer;
-  var buffer2 = UUID.toUUID(uuid)._buffer;
+  var buffer1 = this.toBuffer(); // clone
+  var buffer2 = UUID.toUUID(uuid)[BUFFER];
   for (var i = 0; i < 16; i ++) buffer1[i] &= buffer2[i];
   return new UUID(buffer1);
 };
 
 UUID.prototype.or = function or(uuid) {
-  var buffer1 = this._buffer;
-  var buffer2 = UUID.toUUID(uuid)._buffer;
+  var buffer1 = this.toBuffer(); // clone
+  var buffer2 = UUID.toUUID(uuid)[BUFFER];
   for (var i = 0; i < 16; i ++) buffer1[i] |= buffer2[i];
   return new UUID(buffer1);
 };
 
 UUID.prototype.not = function not() {
-  var buffer = this._buffer;
+  var buffer = this.toBuffer(); // clone
   for (var i = 0; i < 16; i ++) buffer[i] = ~ buffer[i];
   return new UUID(buffer);
 };
 
 UUID.prototype.xor = function xor(uuid) {
-  var buffer1 = this._buffer;
-  var buffer2 = UUID.toUUID(uuid)._buffer;
+  var buffer1 = this.toBuffer(); // clone
+  var buffer2 = UUID.toUUID(uuid)[BUFFER];
   for (var i = 0; i < 16; i ++) buffer1[i] ^= buffer2[i];
   return new UUID(buffer1);
 };
 
 /* ========================================================================== */
 
+UUID.prototype.toBuffer = function toBuffer() {
+  return new Buffer(this[BUFFER]);
+};
+
 UUID.prototype.toString = function toString() {
-  return this._buffer.slice( 0, 4).toString('hex') + '-'
-       + this._buffer.slice( 4, 6).toString('hex') + '-'
-       + this._buffer.slice( 6, 8).toString('hex') + '-'
-       + this._buffer.slice( 8, 10).toString('hex') + '-'
-       + this._buffer.slice(10, 16).toString('hex');
+  return this[BUFFER].slice( 0, 4).toString('hex') + '-'
+       + this[BUFFER].slice( 4, 6).toString('hex') + '-'
+       + this[BUFFER].slice( 6, 8).toString('hex') + '-'
+       + this[BUFFER].slice( 8, 10).toString('hex') + '-'
+       + this[BUFFER].slice(10, 16).toString('hex');
 };
 
 UUID.prototype.toJSON = function toJSON() {
@@ -266,7 +272,7 @@ UUID.v3uuid = function v3uuid(namespace, name) {
   }
 
   var buffer = crypto.createHash('MD5')
-                     .update(namespace._buffer)
+                     .update(namespace[BUFFER])
                      .update(name)
                      .digest();
 
@@ -297,7 +303,7 @@ UUID.v5uuid = function v5uuid(namespace, name) {
   }
 
   var buffer = crypto.createHash('SHA1')
-                     .update(namespace._buffer)
+                     .update(namespace[BUFFER])
                      .update(name)
                      .digest();
 

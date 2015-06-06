@@ -26,7 +26,7 @@ class IndexError extends Error {
     /* Capture stack */
     Error.captureStackTrace(this, IndexError);
   };
-};
+}
 
 IndexError.prototype.message = 'Index Error';
 IndexError.prototype.name = 'IndexError';
@@ -41,8 +41,8 @@ const CLIENT = Symbol('client');
 
 class DbIndex {
   constructor(keyManager, client) {
-    if (!(keyManager instanceof KeyManager)) throw new Error('Invalid key manager');
-    if (!(client instanceof DbClient)) throw new Error('Database client not specified or invalid');
+    if (! (keyManager instanceof KeyManager)) throw new Error('Invalid key manager');
+    if (! (client instanceof DbClient)) throw new Error('Database client not specified or invalid');
 
     // Simple function to get namespace from scope
     this[NAMESPACE] = function namespace(scope) {
@@ -53,9 +53,9 @@ class DbIndex {
       } else if (scope instanceof DbObject) {
         return keyManager.namespace(scope.uuid);
       } else {
-        throw new Error("Scope must be a string or DbObject");
+        throw new Error('Scope must be a string or DbObject');
       }
-    }
+    };
 
     // Key manager and client
     this[KEY_MANAGER] = keyManager;
@@ -69,9 +69,11 @@ class DbIndex {
     var self = this;
 
     // Execute DELETE/INSERT in a transaction
-    if (! query) return self[CLIENT].transaction(function(query) {
-      return self.index(scope, owner, attributes, query);
-    });
+    if (! query) {
+      return self[CLIENT].transaction(function(transaction) {
+        return self.index(scope, owner, attributes, transaction);
+      });
+    }
 
     // Delete all previously indexed values
     return this.clear(scope, owner, query)
@@ -94,7 +96,7 @@ class DbIndex {
           // then to be inserted in the db, and finally returned
           var namespace = self[NAMESPACE](scope);
           var keyid = UUID.v5(namespace, key);
-          var value = UUID.v5(namespace, key + ":" + attributes[key]);
+          var value = UUID.v5(namespace, key + ':' + attributes[key]);
           values[key] = value;
           keys[value] = key;
 
@@ -120,16 +122,16 @@ class DbIndex {
 
         // Build up our fancy query to find dupes
         var dup_sql = 'SELECT "objects".*, "objects_index"."value"'
-                    +  ' FROM "objects_index", "objects"'
+                     + ' FROM "objects_index", "objects"'
                     + ' WHERE "objects_index"."owner" = "objects"."uuid" AND'
-                    +       ' "objects_index"."value" IN (' + dup_args.join(', ') + ') AND ';
+                          + ' "objects_index"."value" IN (' + dup_args.join(', ') + ') AND ';
 
         // Inject our scope in the SQL
         if (scope == null) {
           dup_sql += '"objects_index"."scope" IS NULL';
         } else {
           var dup_pos = dup_params.push(scope);
-          dup_sql += `"objects_index"."scope" = $${dup_pos}::uuid`
+          dup_sql += `"objects_index"."scope" = $${dup_pos}::uuid`;
         }
 
         return query(dup_sql, dup_params)
@@ -147,14 +149,14 @@ class DbIndex {
 
             // Well, good, no duplicates
             var ins_sql = 'INSERT INTO "objects_index" ("scope", "owner", "keyid", "value") '
-                        +     ' VALUES ' + ins_args.join(', ');
+                            + ' VALUES ' + ins_args.join(', ');
 
             return query(ins_sql, ins_params)
               .then(function() {
                 return values;
-              })
-          })
-      })
+              });
+          });
+      });
   }
 
   /* ------------------------------------------------------------------------ *
@@ -173,38 +175,42 @@ class DbIndex {
     }
 
     // Connect to the DB if not already
-    if (! query) return self[CLIENT].read(function(query) {
-      return self.search(scope, key, query);
-    });
+    if (! query) {
+      return self[CLIENT].read(function(read) {
+        return self.search(scope, key, read);
+      });
+    }
 
     // Wrap into a promise
-    return new Promise(function(resolve, reject) {
+    return new Promise(function(resolve) {
 
         // Figure out how to query this puppy
         var sql = 'SELECT "objects".*'
-                +  ' FROM "objects_index", "objects"'
+                 + ' FROM "objects_index", "objects"'
                 + ' WHERE "objects"."uuid" = "objects_index"."owner"'
-                +   ' AND "keyid" = $1::uuid '
-                +   ' AND "scope"';
+                  + ' AND "keyid" = $1::uuid '
+                  + ' AND "scope"';
 
         // Calculate the attribute V5 UUID
         var params = [ UUID.v5(namespace, key) ];
 
         // See about that NULL check
         if (scope) {
-          sql += "= $2::uuid";
+          sql += '= $2::uuid';
           params.push(scope);
         } else {
-          sql += "IS NULL";
+          sql += 'IS NULL';
         }
 
         // Let's see what we got...
         resolve(query(sql, params)
           .then(function(result) {
             var objects = [];
-            if (result && result.rows) result.rows.forEach(function(row) {
-              objects.push(new DbObject(row, self[KEY_MANAGER]));
-            });
+            if (result && result.rows) {
+              result.rows.forEach(function(row) {
+                objects.push(new DbObject(row, self[KEY_MANAGER]));
+              });
+            }
             return objects;
           }));
     });
@@ -229,29 +235,31 @@ class DbIndex {
     if (value == null) return Promise.resolve(null);
 
     // Connect to the DB if not already
-    if (! query) return self[CLIENT].read(function(query) {
-      return self.find(scope, key, value, query);
-    });
+    if (! query) {
+      return self[CLIENT].read(function(read) {
+        return self.find(scope, key, value, read);
+      });
+    }
 
     // Wrap into a promise
-    return new Promise(function(resolve, reject) {
+    return new Promise(function(resolve) {
 
         // Figure out how to query this puppy
         var sql = 'SELECT "objects".*'
-                +  ' FROM "objects_index", "objects"'
+                 + ' FROM "objects_index", "objects"'
                 + ' WHERE "objects"."uuid" = "objects_index"."owner"'
-                +   ' AND "value" = $1::uuid '
-                +   ' AND "scope"';
+                  + ' AND "value" = $1::uuid '
+                  + ' AND "scope"';
 
         // Calculate the attribute V5 UUID
-        var params = [ UUID.v5(namespace, key + ":" + value) ];
+        var params = [ UUID.v5(namespace, key + ':' + value) ];
 
         // See about that NULL check
         if (scope) {
-          sql += "= $2::uuid";
+          sql += '= $2::uuid';
           params.push(scope);
         } else {
-          sql += "IS NULL";
+          sql += 'IS NULL';
         }
 
         // Let's see what we got...
@@ -270,18 +278,20 @@ class DbIndex {
     var self = this;
 
     // Connect to the DB if not already
-    if (! query) return self[CLIENT].transaction(function(query) {
-      return self.clear(scope, owner, query);
-    });
+    if (! query) {
+      return self[CLIENT].transaction(function(transaction) {
+        return self.clear(scope, owner, transaction);
+      });
+    }
 
     var params = [ owner ];
     var sql = 'DELETE FROM "objects_index"'
             + ' WHERE "owner" = $1::uuid AND "scope" ';
     if (scope) {
-      sql += "= $2::uuid";
+      sql += '= $2::uuid';
       params.push(scope);
     } else {
-      sql += "IS NULL";
+      sql += 'IS NULL';
     }
 
     return query(sql, params)

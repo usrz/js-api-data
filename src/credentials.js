@@ -21,20 +21,20 @@ class Credentials {
     var buffer = new Buffer(password, 'utf8');
 
     // Encrypt the key...
-    var key = crypto.pbkdf2Sync(buffer, salt, 100000, 20, 'sha1')
+    var key = crypto.pbkdf2Sync(buffer, salt, 100000, 20, 'sha1');
 
     // Calculate our SCRAM values...
-    var server_key = crypto.createHmac('sha256', key)
-                           .update(new Buffer('Server Key', 'utf8'))
-                           .digest();
+    var serverKey = crypto.createHmac('sha256', key)
+                          .update(new Buffer('Server Key', 'utf8'))
+                          .digest();
 
-    var client_key = crypto.createHmac('sha256', key)
-                           .update(new Buffer('Client Key', 'utf8'))
-                           .digest();
+    var clientKey = crypto.createHmac('sha256', key)
+                          .update(new Buffer('Client Key', 'utf8'))
+                          .digest();
 
-    var stored_key = crypto.createHash('sha256')
-                           .update(client_key)
-                           .digest();
+    var storedKey = crypto.createHash('sha256')
+                          .update(clientKey)
+                          .digest();
 
     // Freeze KDF spec
     this.kdf_spec = Object.freeze({
@@ -45,8 +45,8 @@ class Credentials {
     });
 
     // Store computed values
-    this.server_key = server_key.toString('base64');
-    this.stored_key = stored_key.toString('base64');
+    this.server_key = serverKey.toString('base64');
+    this.stored_key = storedKey.toString('base64');
     this.salt = salt.toString('base64');
     this.hash = 'SHA-256';
 

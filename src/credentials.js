@@ -1,7 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
-const util = require('util');
+const util   = require('util');
 
 /* ========================================================================== *
  * CREDENTIALS CLASS                                                          *

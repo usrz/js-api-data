@@ -1,23 +1,35 @@
 {
-    "ecmaFeatures": {
-        "classes": true,
-        "blockBindings": true,
-        "superInFunctions": true,
-        "templateStrings": true
-    },
-    "env": {
-        "node": true
-    },
-    "rules": {
-        "camelcase": [1, {"properties": "never"}],
-        "curly": [1, "multi-line"],
-        "key-spacing": [2, {
-            "beforeColon": false,
-            "afterColon": true,
-            "align": "value"
-        }],
-        "no-use-before-define": [1, "nofunc"],
-        "quotes": [1, "single"],
-        "space-unary-ops": [1, { "words": false, "nonwords": true }]
-    }
+  "ecmaFeatures": {
+    "classes": true,
+    "blockBindings": true,
+    "superInFunctions": true,
+    "templateStrings": true
+  },
+  "env": {
+    "node": true
+  },
+  "rules": {
+    "camelcase": [ 1, {
+      "properties": "never"
+      } ],
+    "curly": [ 1, "multi-line" ],
+    "key-spacing": [ 2, {
+        "beforeColon": false,
+        "afterColon": true,
+        "align": "value"
+      } ],
+    "no-multi-spaces": [ 1, {
+        "exceptions": { "VariableDeclarator": true }
+      } ],
+    "no-unused-vars": [ 2, {
+        "vars": "all",
+        "args": "all"
+      } ],
+    "no-use-before-define": [ 1, "nofunc" ],
+    "quotes": [ 1, "single" ],
+    "space-unary-ops": [ 1, {
+        "words": false,
+        "nonwords": true
+      } ]
+  }
 }

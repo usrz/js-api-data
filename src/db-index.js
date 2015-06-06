@@ -1,10 +1,10 @@
 'use strict';
 
 const KeyManager = require('./key-manager');
-const DbClient = require('./db-client');
-const DbObject = require('./db-object');
-const UUID = require('./uuid');
-const util = require('util');
+const DbClient   = require('./db-client');
+const DbObject   = require('./db-object');
+const UUID       = require('./uuid');
+const util       = require('util');
 
 /* ========================================================================== *
  * INDEX ERROR, WHEN DUPLICATES ARE FOUND                                     *
@@ -36,8 +36,8 @@ IndexError.prototype.name = 'IndexError';
  * ========================================================================== */
 
 const KEY_MANAGER = Symbol('key_manager');
-const NAMESPACE = Symbol('namespace');
-const CLIENT = Symbol('client');
+const NAMESPACE   = Symbol('namespace');
+const CLIENT      = Symbol('client');
 
 class DbIndex {
   constructor(keyManager, client) {

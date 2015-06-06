@@ -83,8 +83,8 @@ class DbIndex {
         var keys = {}, values = {}, empty = true;
 
         // Parameters for our insert and duples check query
-        var dup_params = [], dup_args = [];
-        var ins_params = [], ins_args = [];
+        var dupParams = [], dupArgs = [];
+        var insParams = [], insArgs = [];
 
         // Compute ths madness for each attribute
         Object.keys(attributes).forEach(function (key) {
@@ -101,16 +101,16 @@ class DbIndex {
           keys[value] = key;
 
           // Calculate arguments and parameters for the index insert query
-          var scope_pos = ins_params.push(scope);
-          var owner_pos = ins_params.push(owner);
-          var keyid_pos = ins_params.push(keyid);
-          var value_pos = ins_params.push(value);
-          ins_args.push(`($${scope_pos}::uuid, $${owner_pos}::uuid, `
-                       + `$${keyid_pos}::uuid, $${value_pos}::uuid)`);
+          var scopePos = insParams.push(scope);
+          var ownerPos = insParams.push(owner);
+          var keyIdPos = insParams.push(keyid);
+          var valuePos = insParams.push(value);
+          insArgs.push(`($${scopePos}::uuid, $${ownerPos}::uuid,`
+                     + ` $${keyIdPos}::uuid, $${valuePos}::uuid)`);
 
           // Then for the duplicates check query
-          var check_pos = dup_params.push(value);
-          dup_args.push(`$${check_pos}::uuid`);
+          var checkPos = dupParams.push(value);
+          dupArgs.push(`$${checkPos}::uuid`);
 
           // Finally, remember that we have to index
           empty = false;
@@ -121,37 +121,37 @@ class DbIndex {
         if (empty) return {};
 
         // Build up our fancy query to find dupes
-        var dup_sql = 'SELECT "objects".*, "objects_index"."value"'
+        var dupSql = 'SELECT "objects".*, "objects_index"."value"'
                      + ' FROM "objects_index", "objects"'
                     + ' WHERE "objects_index"."owner" = "objects"."uuid" AND'
-                          + ' "objects_index"."value" IN (' + dup_args.join(', ') + ') AND ';
+                          + ' "objects_index"."value" IN (' + dupArgs.join(', ') + ') AND ';
 
         // Inject our scope in the SQL
         if (scope == null) {
-          dup_sql += '"objects_index"."scope" IS NULL';
+          dupSql += '"objects_index"."scope" IS NULL';
         } else {
-          var dup_pos = dup_params.push(scope);
-          dup_sql += `"objects_index"."scope" = $${dup_pos}::uuid`;
+          var dupPos = dupParams.push(scope);
+          dupSql += `"objects_index"."scope" = $${dupPos}::uuid`;
         }
 
-        return query(dup_sql, dup_params)
+        return query(dupSql, dupParams)
           .then(function(result) {
 
             // If we have some rows, we have dupes!
             if (result.rowCount > 0) {
               var duplicates = {};
               result.rows.forEach(function(row) {
-                var previous_owner = new DbObject(row, self[KEY_MANAGER]);
-                duplicates[keys[row.value]] = previous_owner;
+                var previousOwner = new DbObject(row, self[KEY_MANAGER]);
+                duplicates[keys[row.value]] = previousOwner;
               });
               throw new IndexError(scope, owner, duplicates);
             }
 
             // Well, good, no duplicates
-            var ins_sql = 'INSERT INTO "objects_index" ("scope", "owner", "keyid", "value") '
-                            + ' VALUES ' + ins_args.join(', ');
+            var insSql = 'INSERT INTO "objects_index" ("scope", "owner", "keyid", "value") '
+                            + ' VALUES ' + insArgs.join(', ');
 
-            return query(ins_sql, ins_params)
+            return query(insSql, insParams)
               .then(function() {
                 return values;
               });

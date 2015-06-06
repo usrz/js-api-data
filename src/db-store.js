@@ -9,17 +9,17 @@ const EventEmitter = require('events').EventEmitter;
 const util = require('util');
 
 // Symbols for our private properties
-const KEY_MANAGER    = Symbol('key_manager');
-const VALIDATE       = Symbol('validate');
-const CLIENT         = Symbol('client');
-const INDEX          = Symbol('index');
+const KEY_MANAGER = Symbol('key_manager');
+const VALIDATE = Symbol('validate');
+const CLIENT = Symbol('client');
+const INDEX = Symbol('index');
 
 /* ========================================================================== */
 
 // Merge a couple of objects
 function merge(one, two) {
-  if (!util.isObject(one)) throw new Error('First object to merge not an object');
-  if (!util.isObject(two)) throw new Error('Second object to merge not an object');
+  if (! util.isObject(one)) throw new Error('First object to merge not an object');
+  if (! util.isObject(two)) throw new Error('Second object to merge not an object');
 
   var result = {};
 
@@ -35,13 +35,14 @@ function merge(one, two) {
     } else {
       result[key] = two[key];
     }
-  })
+  });
 
   // Wipe out all null and empty string results
   Object.keys(result).forEach(function(key) {
     var value = result[key];
-    if ((value == null) || (util.isString(value) && value.match(/^\s+$/)))
+    if ((value == null) || (util.isString(value) && value.match(/^\s+$/))) {
       delete result[key];
+    }
   });
 
   // Done!
@@ -49,10 +50,10 @@ function merge(one, two) {
 }
 
 // Get the UUID string from a DBObject, string, or UUID
-function to_uuid(what) {
+function getUuid(what) {
   if (! what) return null;
   if (what instanceof DbObject) return UUID.validate(what.uuid);
-  if (what instanceof UUID) return uuid.toString();
+  if (what instanceof UUID) return what.toString();
   if (util.isString(what)) return UUID.validate(what);
   return null;
 }
@@ -62,39 +63,43 @@ function to_uuid(what) {
  * ========================================================================== */
 
 class DbStore extends EventEmitter {
-  constructor(keyManager, client, schema, indexer) {
+  constructor(keyManager, client, validator, indexer) {
     super();
 
     // Validate key manager
-    if (!(keyManager instanceof KeyManager)) throw new Error('Invalid key manager');
+    if (! (keyManager instanceof KeyManager)) throw new Error('Invalid key manager');
 
     // Access to our database (RO/RW)
-    if (!(client instanceof DbClient)) throw new Error('Database client not specified or invalid');
+    if (! (client instanceof DbClient)) throw new Error('Database client not specified or invalid');
 
-    // Check schema
-    var self = this;
+    // Check validator
     var validate;
-    if (! schema) validate = function(object) { return Promise.resolve(object) };
-    else if (typeof(schema) === 'function') {
-
+    if (! validator) {
+      validate = function(object) {
+        return Promise.resolve(object);
+      };
+    } else if (typeof(validator) === 'function') {
       validate = function(attributes, query, parent) {
         try {
-          var result = schema(attributes, query, parent);
+          var result = validator(attributes, query, parent);
           if (! result) return Promise.resolve(attributes);
           if (util.isFunction(result.then)) return result;
           return Promise.resolve(result);
         } catch (error) {
           return Promise.reject(error);
         }
-      }
-
+      };
+    } else {
+      throw new Error('Validator must be a function or null');
     }
-    else throw new Error('Schema must be a validation function or Joi schema');
 
-    //
+    // Check indexer
     var index = null;
-    if (! indexer) index = function() { return Promise.resolve(null) }
-    else if (util.isFunction(indexer)) {
+    if (! indexer) {
+      index = function() {
+        return Promise.resolve(null);
+      };
+    } else if (util.isFunction(indexer)) {
       index = function(attributes, query, object) {
         try {
           var result = indexer(attributes, query, object);
@@ -103,9 +108,10 @@ class DbStore extends EventEmitter {
         } catch (error) {
           return Promise.reject(error);
         }
-      }
+      };
+    } else {
+      throw new Error('Indexer must be a function or null');
     }
-    else throw new Error("Sorry, matey!!!");
 
     /* ---------------------------------------------------------------------- *
      * Remember our instance variables                                        *
@@ -115,46 +121,43 @@ class DbStore extends EventEmitter {
     this[VALIDATE] = validate;
     this[CLIENT] = client;
     this[INDEX] = index;
-
-  }
-
-  toString() {
-    return "[object DbStore]";
   }
 
   /* ------------------------------------------------------------------------ *
    * Select a single record out of the DB                                     *
    * ------------------------------------------------------------------------ */
 
-  select(uuid, kind, include_deleted, query) {
+  select(uuid, kind, includeDeleted, query) {
     var self = this;
 
     // Null for invalid UUIDs
-    uuid = to_uuid(uuid);
+    uuid = getUuid(uuid);
     if (! uuid) return Promise.resolve(null);
 
     // Check for optional parameters
     if (util.isFunction(kind)) {
       query = kind;
-      include_deleted = false;
+      includeDeleted = false;
       kind = null;
     } else if (util.isBoolean(kind)) {
-      query = include_deleted;
-      include_deleted = kind;
+      query = includeDeleted;
+      includeDeleted = kind;
       kind = null;
-    } else if (util.isFunction(include_deleted)) {
-      query = include_deleted;
-      include_deleted = false;
+    } else if (util.isFunction(includeDeleted)) {
+      query = includeDeleted;
+      includeDeleted = false;
     }
 
     // No query? Connect for "SELECT" (no updates)
-    if (! query) return self[CLIENT].read(function(query) {
-      return self.select(uuid, kind, include_deleted, query);
-    });
+    if (! query) {
+      return self[CLIENT].read(function(read) {
+        return self.select(uuid, kind, includeDeleted, read);
+      });
+    }
 
     // Our basic SQL
     var sql = 'SELECT * FROM "'
-            + (include_deleted ? 'available_objects' : 'objects' )
+            + (includeDeleted ? 'available_objects' : 'objects' )
             + '" WHERE "uuid" = $1::uuid';
     var args = [ uuid ];
 
@@ -177,35 +180,37 @@ class DbStore extends EventEmitter {
    * Find all records having the specified parent                             *
    * ------------------------------------------------------------------------ */
 
-  parent(parent, kind, include_deleted, query) {
+  parent(parent, kind, includeDeleted, query) {
     var self = this;
 
     // Null for invalid UUIDs
-    parent = to_uuid(parent);
+    parent = getUuid(parent);
     if (! parent) return Promise.resolve({});
 
     // Check for optional parameters
     if (util.isFunction(kind)) {
       query = kind;
-      include_deleted = false;
+      includeDeleted = false;
       kind = null;
     } else if (util.isBoolean(kind)) {
-      query = include_deleted;
-      include_deleted = kind;
+      query = includeDeleted;
+      includeDeleted = kind;
       kind = null;
-    } else if (util.isFunction(include_deleted)) {
-      query = include_deleted;
-      include_deleted = false;
+    } else if (util.isFunction(includeDeleted)) {
+      query = includeDeleted;
+      includeDeleted = false;
     }
 
     // No query? Connect for "SELECT" (no updates)
-    if (! query) return self[CLIENT].read(function(query) {
-      return self.parent(parent, kind, include_deleted, query);
-    });
+    if (! query) {
+      return self[CLIENT].read(function(read) {
+        return self.parent(parent, kind, includeDeleted, read);
+      });
+    }
 
     // Our basic SQL
     var sql = 'SELECT * FROM "'
-            + (include_deleted ? 'available_objects' : 'objects' )
+            + (includeDeleted ? 'available_objects' : 'objects' )
             + '" WHERE "parent" = $1::uuid';
     var args = [ parent ];
 
@@ -236,16 +241,18 @@ class DbStore extends EventEmitter {
   insert(kind, parent, attributes, query) {
     var self = this;
 
-    if (! query) return self[CLIENT].write(function(query) {
-      return self.insert(kind, parent, attributes, query);
-    });
+    if (! query) {
+      return self[CLIENT].write(function(transaction) {
+        return self.insert(kind, parent, attributes, transaction);
+      });
+    }
 
     // Wrap in a promise, for exceptions
     return Promise.resolve(attributes)
 
       // Merge with empty (IOW copy) and validate
-      .then(function(attributes) {
-        var merged = merge({}, attributes);
+      .then(function(resolved) {
+        var merged = merge({}, resolved);
         return self[VALIDATE](merged, query, parent);
       })
 
@@ -264,9 +271,9 @@ class DbStore extends EventEmitter {
         // Validate parent UUID
         var uuid = parent;
         if (uuid != null) {
-          uuid = to_uuid(parent);
+          uuid = getUuid(parent);
           if (uuid == null) {
-            throw new Error('Invalid parent "' + parent + "'");
+            throw new Error('Invalid parent "' + parent + '"');
           }
         }
 
@@ -277,13 +284,15 @@ class DbStore extends EventEmitter {
       .then(function(result) {
         if ((! result) || (! result.rows) || (! result.rows[0])) return null;
         var object = new DbObject(result.rows[0], self[KEY_MANAGER]);
+
+        // Decrypt (triple check)
         return object.attributes()
-          .then(function(attributes) {
-            return self[INDEX](attributes, query, object);
+          .then(function(decrypted) {
+            return self[INDEX](decrypted, query, object);
           })
-          .then(function(whatever) {
+          .then(function() {
             return object;
-          })
+          });
       });
   }
 
@@ -294,24 +303,26 @@ class DbStore extends EventEmitter {
   update(uuid, attributes, query) {
     var self = this;
 
-    if (! query) return self[CLIENT].write(function(query) {
-      return self.update(uuid, attributes, query);
-    });
+    if (! query) {
+      return self[CLIENT].transaction(function(transaction) {
+        return self.update(uuid, attributes, transaction);
+      });
+    }
 
     // Attempt to get the record
     return self.select(uuid, query)
-      .then(function(result) {
+      .then(function(existing) {
 
         // Return null instead of throwing (send 404 at the end rather than 500)
-        if (! result) return null;
+        if (! existing) return null;
 
         // Decrypt the attributes in a sub-promise
-        return result.attributes()
+        return existing.attributes()
 
           // Merge, then validate the new attributes
           .then(function(previous) {
             var merged = merge(previous, attributes);
-            return self[VALIDATE](merged, query, result.parent);
+            return self[VALIDATE](merged, query, existing.parent);
           })
 
           // Encrypt the new attributes
@@ -331,13 +342,15 @@ class DbStore extends EventEmitter {
               .then(function(result) {
                 if ((! result) || (! result.rows) || (! result.rows[0])) return null;
                 var object = new DbObject(result.rows[0], self[KEY_MANAGER]);
+
+                // Decrypt (triple check)
                 return object.attributes()
-                  .then(function(attributes) {
-                    return self[INDEX](attributes, query, object);
+                  .then(function(decrypted) {
+                    return self[INDEX](decrypted, query, object);
                   })
-                  .then(function(whatever) {
+                  .then(function() {
                     return object;
-                  })
+                  });
               });
           });
       });
@@ -350,15 +363,17 @@ class DbStore extends EventEmitter {
     var self = this;
 
     // Null for invalid UUIDs
-    uuid = to_uuid(uuid);
+    uuid = getUuid(uuid);
     if (! uuid) return Promise.resolve(null);
 
-    if (! query) return self[CLIENT].write(function(query) {
-      return self.delete(uuid, query);
-    });
+    if (! query) {
+      return self[CLIENT].write(function(write) {
+        return self.delete(uuid, write);
+      });
+    }
 
     return query('DELETE FROM "objects" WHERE "uuid" = $1::uuid', uuid)
-      .then(function(result) {
+      .then(function() {
         return self.select(uuid, null, true, query);
       });
   }
@@ -371,36 +386,40 @@ class DbStore extends EventEmitter {
 class Simple {
   constructor(store, kind) {
     Object.defineProperties(this, {
-      "client": { enumerable: false, configurable: false, value: store[CLIENT] },
-      "store":  { enumerable: false, configurable: false, value: store },
-      "kind":   { enumerable: false, configurable: false, value: kind  },
+      'client': { enumerable: false, configurable: false, value: store[CLIENT] },
+      'store':  { enumerable: false, configurable: false, value: store },
+      'kind':   { enumerable: false, configurable: false, value: kind }
     });
   }
 
-  get(uuid, include_deleted, query) {
+  get(uuid, includeDeleted, query) {
     var self = this;
 
     // Optional parameter
-    if (util.isFunction(include_deleted)) {
-      query = include_deleted;
-      include_deleted = false;
+    if (util.isFunction(includeDeleted)) {
+      query = includeDeleted;
+      includeDeleted = false;
     }
 
     // Potentially, this might be called from a transaction
-    if (! query) return this.client.read(function(query) {
-      return self.store.select(uuid, self.kind, include_deleted, query);
-    });
+    if (! query) {
+      return this.client.read(function(read) {
+        return self.store.select(uuid, self.kind, includeDeleted, read);
+      });
+    }
 
-    return this.store.select(uuid, this.kind, include_deleted, query);
+    return this.store.select(uuid, this.kind, includeDeleted, query);
   }
 
   delete(uuid, query) {
     var self = this;
 
     // Execute all in a transaction (if one was not specified)
-    if (! query) return this.client.transaction(function(query) {
-      return self.store.delete(uuid, query);
-    });
+    if (! query) {
+      return this.client.transaction(function(transaction) {
+        return self.store.delete(uuid, transaction);
+      });
+    }
 
     return this.store.delete(uuid, query);
   }
@@ -409,9 +428,11 @@ class Simple {
     var self = this;
 
     // Execute all in a transaction (if one was not specified)
-    if (! query) return this.client.transaction(function(query) {
-      return self.store.insert(self.kind, parent, attributes, query);
-    });
+    if (! query) {
+      return this.client.transaction(function(transaction) {
+        return self.store.insert(self.kind, parent, attributes, transaction);
+      });
+    }
 
     return this.store.insert(this.kind, parent, attributes, query);
   }
@@ -420,12 +441,14 @@ class Simple {
     var self = this;
 
     // Execute all in a transaction (if one was not specified)
-    if (! query) return this.client.transaction(function(query) {
-      return self.store.update(uuid, attributes, query);
-    });
+    if (! query) {
+      return this.client.transaction(function(transaction) {
+        return self.store.update(uuid, attributes, transaction);
+      });
+    }
 
     // Modify the user
-    return this.store.update(uuid, attributes, query)
+    return this.store.update(uuid, attributes, query);
   }
 
 

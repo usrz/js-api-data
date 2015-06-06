@@ -38,10 +38,10 @@ class Credentials {
 
     // Freeze KDF spec
     this.kdf_spec = Object.freeze({
-      algorithm: 'PBKDF2',
+      algorithm:          'PBKDF2',
       derived_key_length: 20,
-      iterations: 100000,
-      hash: 'SHA-1'
+      iterations:         100000,
+      hash:               'SHA-1'
     });
 
     // Store computed values

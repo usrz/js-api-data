@@ -26,9 +26,9 @@ function mergeStack(error, cause) {
     stack += '\n  Caused by [' + typeof (cause) + '] ' + cause.toString();
   }
   Object.defineProperty(error, 'stack', {
-    enumerable: false,
+    enumerable:   false,
     configurable: true, // leave configurable
-    value: stack
+    value:        stack
   });
 }
 

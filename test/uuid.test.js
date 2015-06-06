@@ -3,7 +3,7 @@
 var expect = require('chai').expect;
 var UUID = require('../src/uuid');
 
-describe.only('UUID', function() {
+describe('UUID', function() {
 
   describe('UUID class', function() {
 
@@ -40,22 +40,22 @@ describe.only('UUID', function() {
     describe('creator function', function() {
 
       it('should construct with a string', function() {
-        var uuid = UUID('DF64783F-9EDB-42B5-82C6-721E6354E7C4');
+        var uuid = UUID.toUUID('DF64783F-9EDB-42B5-82C6-721E6354E7C4');
         expect(uuid.variant).to.equal('RFC-4122');
         expect(uuid.version).to.equal(4);
         expect(uuid.toString()).to.equal('df64783f-9edb-42b5-82c6-721e6354e7c4');
       });
 
       it('should construct with a buffer', function() {
-        var uuid = UUID(new Buffer('DF64783F9EDB42B582C6721E6354E7C4', 'hex'));
+        var uuid = UUID.toUUID(new Buffer('DF64783F9EDB42B582C6721E6354E7C4', 'hex'));
         expect(uuid.variant).to.equal('RFC-4122');
         expect(uuid.version).to.equal(4);
         expect(uuid.toString()).to.equal('df64783f-9edb-42b5-82c6-721e6354e7c4');
       });
 
       it('should construct with a UUID', function() {
-        var uuid1 = UUID('DF64783F-9EDB-42B5-82C6-721E6354E7C4');
-        var uuid2 = UUID(uuid1);
+        var uuid1 = UUID.toUUID('DF64783F-9EDB-42B5-82C6-721E6354E7C4');
+        var uuid2 = UUID.toUUID(uuid1);
 
         expect(uuid2.variant).to.equal('RFC-4122');
         expect(uuid2.version).to.equal(4);
@@ -69,21 +69,21 @@ describe.only('UUID', function() {
     describe('non-RFC variants', function() {
 
       it('should construct a NCS-RESERVED UUID', function() {
-        var uuid = UUID('00000000-0000-0000-0000-000000000000');
+        var uuid = new UUID('00000000-0000-0000-0000-000000000000');
         expect(uuid.variant).to.equal('NCS-RESERVED');
         expect(uuid.version).to.equal(null);
         expect(uuid.toString()).to.equal('00000000-0000-0000-0000-000000000000');
       });
 
       it('should construct a MICROSOFT-RESERVED UUID', function() {
-        var uuid = UUID('00000000-0000-0000-C000-000000000000');
+        var uuid = new UUID('00000000-0000-0000-C000-000000000000');
         expect(uuid.variant).to.equal('MICROSOFT-RESERVED');
         expect(uuid.version).to.equal(null);
         expect(uuid.toString()).to.equal('00000000-0000-0000-c000-000000000000');
       });
 
       it('should construct a RESERVED UUID', function() {
-        var uuid = UUID('00000000-0000-0000-E000-000000000000');
+        var uuid = new UUID('00000000-0000-0000-E000-000000000000');
         expect(uuid.variant).to.equal('RESERVED');
         expect(uuid.version).to.equal(null);
         expect(uuid.toString()).to.equal('00000000-0000-0000-e000-000000000000');

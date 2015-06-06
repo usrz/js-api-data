@@ -15,132 +15,128 @@ var emac = /^[0-9a-f]+:[0-9a-f]+:[0-9a-f]+:[0-9a-f]+:[0-9a-f]+:[0-9a-f]+$/i;
 
 const BUFFER = Symbol('buffer');
 
-function UUID(data) {
-  // Called as a function
-  if (! (this instanceof UUID)) {
-    if (data instanceof UUID) return data;
-    return new UUID(data);
+class UUID {
+
+  constructor(data) {
+    // Called as a function
+    if (! (this instanceof UUID)) {
+      if (data instanceof UUID) return data;
+      return new UUID(data);
+    }
+
+    // Constructor
+    var buffer;
+
+    if (util.isBuffer(data)) {
+      if (data.length !== 16) throw new TypeError('Buffer must contain precisely 128 bits');
+      buffer = new Buffer(data);
+    } else if (util.isString(data)) {
+      if (! expr.test(data)) throw new TypeError('Incorrectly formatted UUID string');
+      buffer = new Buffer(data.replace(/-/g, ''), 'hex');
+    } else if (data instanceof UUID) {
+      buffer = data[BUFFER];
+    } else if (data) {
+      throw new TypeError('Unable to construct UUID from ' + typeof(data));
+    } else {
+      throw new TypeError('No data for UUID');
+    }
+
+    var variant = null, version = null;
+    if ((buffer[8] & 0x80) === 0) variant = 'NCS-RESERVED';
+    else if ((buffer[8] & 0xE0) === 0xC0) variant = 'MICROSOFT-RESERVED';
+    else if ((buffer[8] & 0xE0) === 0xE0) variant = 'RESERVED';
+    else { // high bits of buffer[8] are 10xxxxxx (0x80)
+      variant = 'RFC-4122';
+      version = buffer[6] >> 4;
+    }
+
+    // UUID immutable/hidden properties
+    this[BUFFER] = buffer;
+
+    Object.defineProperties(this, {
+      'variant': { enumerable: true, configurable: false, value: variant },
+      'version': { enumerable: true, configurable: false, value: version }
+    });
   }
 
-  // Constructor
-  var buffer;
+  /* ======================================================================== */
 
-  if (util.isBuffer(data)) {
-    if (data.length !== 16) throw new TypeError('Buffer must contain precisely 128 bits');
-    buffer = new Buffer(data);
-  } else if (util.isString(data)) {
-    if (! expr.test(data)) throw new TypeError('Incorrectly formatted UUID string');
-    buffer = new Buffer(data.replace(/-/g, ''), 'hex');
-  } else if (data instanceof UUID) {
-    buffer = data[BUFFER];
-  } else if (data) {
-    throw new TypeError('Unable to construct UUID from ' + typeof(data));
-  } else {
-    throw new TypeError('No data for UUID');
+  coerceRFC(version) {
+    if (version == null) {
+      if (this.variant === 'RFC-4122') return this;
+    } else if (! util.isNumber(version)) {
+      throw new TypeError('Version for UUID must be a number');
+    } else if ((version < 0) || (version > 15) || (Math.round(version) !== version)) {
+      throw new TypeError('Version for UUID must be non-negative integer less than 16');
+    }
+
+    // If this is already a RFC UUID, and version should not change return this
+    if ((this.variant === 'RFC-4122') && ((version == null) || (version === this.version))) {
+      return this;
+    }
+
+    // We need to mangle either variant, or version, or both...
+    var buffer = this.toBuffer(); // clone
+
+    // Variant coercion
+    buffer[8] = (buffer[8] & 0x3F) | 0x80;
+
+    // Version coercion
+    if (version != null) {
+      buffer[6] = (buffer[6] & 0x0F) | (version << 4);
+    }
+
+    // New UUID
+    return new UUID(buffer);
   }
 
-  var variant = null, version = null;
-  if ((buffer[8] & 0x80) === 0) variant = 'NCS-RESERVED';
-  else if ((buffer[8] & 0xE0) === 0xC0) variant = 'MICROSOFT-RESERVED';
-  else if ((buffer[8] & 0xE0) === 0xE0) variant = 'RESERVED';
-  else { // high bits of buffer[8] are 10xxxxxx (0x80)
-    variant = 'RFC-4122';
-    version = buffer[6] >> 4;
+  /* ======================================================================== */
+
+  and(uuid) {
+    var buffer1 = this.toBuffer(); // clone
+    var buffer2 = UUID.toUUID(uuid)[BUFFER];
+    for (var i = 0; i < 16; i ++) buffer1[i] &= buffer2[i];
+    return new UUID(buffer1);
   }
 
-  // UUID immutable/hidden properties
-  this[BUFFER] = buffer;
+  or(uuid) {
+    var buffer1 = this.toBuffer(); // clone
+    var buffer2 = UUID.toUUID(uuid)[BUFFER];
+    for (var i = 0; i < 16; i ++) buffer1[i] |= buffer2[i];
+    return new UUID(buffer1);
+  }
 
-  Object.defineProperties(this, {
-    '_buffer': {
-      enumerable:   false,
-      configurable: false,
-      get:          function() {
-        return new Buffer(buffer);
-      }
-    },
-    'variant': { enumerable: true, configurable: false, value: variant },
-    'version': { enumerable: true, configurable: false, value: version }
-  });
+  not() {
+    var buffer = this.toBuffer(); // clone
+    for (var i = 0; i < 16; i ++) buffer[i] = ~ buffer[i];
+    return new UUID(buffer);
+  }
+
+  xor(uuid) {
+    var buffer1 = this.toBuffer(); // clone
+    var buffer2 = UUID.toUUID(uuid)[BUFFER];
+    for (var i = 0; i < 16; i ++) buffer1[i] ^= buffer2[i];
+    return new UUID(buffer1);
+  }
+
+  /* ======================================================================== */
+
+  toBuffer() {
+    return new Buffer(this[BUFFER]);
+  }
+
+  toString() {
+    return this[BUFFER].slice( 0, 4).toString('hex') + '-'
+         + this[BUFFER].slice( 4, 6).toString('hex') + '-'
+         + this[BUFFER].slice( 6, 8).toString('hex') + '-'
+         + this[BUFFER].slice( 8, 10).toString('hex') + '-'
+         + this[BUFFER].slice(10, 16).toString('hex');
+  }
+
+  toJSON() {
+    return this.toString();
+  }
 }
-
-/* ========================================================================== */
-
-UUID.prototype.coerceRFC = function coerceRFC(version) {
-  if (version == null) {
-    if (this.variant === 'RFC-4122') return this;
-  } else if (! util.isNumber(version)) {
-    throw new TypeError('Version for UUID must be a number');
-  } else if ((version < 0) || (version > 15) || (Math.round(version) !== version)) {
-    throw new TypeError('Version for UUID must be non-negative integer less than 16');
-  }
-
-  // If this is already a RFC UUID, and version should not change return this
-  if ((this.variant === 'RFC-4122') && ((version == null) || (version === this.version))) {
-    return this;
-  }
-
-  // We need to mangle either variant, or version, or both...
-  var buffer = this.toBuffer(); // clone
-
-  // Variant coercion
-  buffer[8] = (buffer[8] & 0x3F) | 0x80;
-
-  // Version coercion
-  if (version != null) {
-    buffer[6] = (buffer[6] & 0x0F) | (version << 4);
-  }
-
-  // New UUID
-  return new UUID(buffer);
-};
-
-/* ========================================================================== */
-
-UUID.prototype.and = function and(uuid) {
-  var buffer1 = this.toBuffer(); // clone
-  var buffer2 = UUID.toUUID(uuid)[BUFFER];
-  for (var i = 0; i < 16; i ++) buffer1[i] &= buffer2[i];
-  return new UUID(buffer1);
-};
-
-UUID.prototype.or = function or(uuid) {
-  var buffer1 = this.toBuffer(); // clone
-  var buffer2 = UUID.toUUID(uuid)[BUFFER];
-  for (var i = 0; i < 16; i ++) buffer1[i] |= buffer2[i];
-  return new UUID(buffer1);
-};
-
-UUID.prototype.not = function not() {
-  var buffer = this.toBuffer(); // clone
-  for (var i = 0; i < 16; i ++) buffer[i] = ~ buffer[i];
-  return new UUID(buffer);
-};
-
-UUID.prototype.xor = function xor(uuid) {
-  var buffer1 = this.toBuffer(); // clone
-  var buffer2 = UUID.toUUID(uuid)[BUFFER];
-  for (var i = 0; i < 16; i ++) buffer1[i] ^= buffer2[i];
-  return new UUID(buffer1);
-};
-
-/* ========================================================================== */
-
-UUID.prototype.toBuffer = function toBuffer() {
-  return new Buffer(this[BUFFER]);
-};
-
-UUID.prototype.toString = function toString() {
-  return this[BUFFER].slice( 0, 4).toString('hex') + '-'
-       + this[BUFFER].slice( 4, 6).toString('hex') + '-'
-       + this[BUFFER].slice( 6, 8).toString('hex') + '-'
-       + this[BUFFER].slice( 8, 10).toString('hex') + '-'
-       + this[BUFFER].slice(10, 16).toString('hex');
-};
-
-UUID.prototype.toJSON = function toJSON() {
-  return this.toString();
-};
 
 /* ========================================================================== */
 /* UTILITIES FOR STATIC METHODS                                               */

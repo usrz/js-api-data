@@ -13,9 +13,9 @@ describe('Credentials', function() {
     credentials = new Credentials('password');
 
     expect(credentials.kdf_spec).to.eql({
-      algorithm: 'PBKDF2',
-      hash: 'SHA-1',
-      iterations: 100000,
+      algorithm:          'PBKDF2',
+      hash:               'SHA-1',
+      iterations:         100000,
       derived_key_length: 20
     });
 
@@ -39,18 +39,18 @@ describe('Credentials', function() {
                                 credentials.kdf_spec.hash.replace(/SHA-/, 'sha'));
     var hash = credentials.hash.replace(/SHA-/, 'sha');
 
-    var server_key = crypto.createHmac(hash, key)
-                           .update(new Buffer('Server Key', 'utf8'))
-                           .digest();
-    var client_key = crypto.createHmac(hash, key)
-                           .update(new Buffer('Client Key', 'utf8'))
-                           .digest();
-    var stored_key = crypto.createHash(hash)
-                           .update(client_key)
-                           .digest();
+    var serverKey = crypto.createHmac(hash, key)
+                          .update(new Buffer('Server Key', 'utf8'))
+                          .digest();
+    var clientKey = crypto.createHmac(hash, key)
+                          .update(new Buffer('Client Key', 'utf8'))
+                          .digest();
+    var storedKey = crypto.createHash(hash)
+                          .update(clientKey)
+                          .digest();
 
     // Check computed values encodings...
-    expect(credentials.stored_key).to.equal(stored_key.toString('base64'));
-    expect(credentials.server_key).to.equal(server_key.toString('base64'));
+    expect(credentials.stored_key).to.equal(storedKey.toString('base64'));
+    expect(credentials.server_key).to.equal(serverKey.toString('base64'));
   });
 });

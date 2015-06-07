@@ -1,8 +1,8 @@
+/*eslint no-unused-expressions: 0*/
 'use strict';
 
 const expect = require('chai').expect;
 const KeyManager = require('../src/key-manager');
-const pg = require('pg');
 
 describe('Encryption Key Manager', function() {
 
@@ -16,12 +16,12 @@ describe('Encryption Key Manager', function() {
   before(function() {
     var masterKey = new Buffer(32).fill(0);
     keyManager = new KeyManager(masterKey, testdb.client);
-  })
+  });
   after(testdb.after);
 
   it('should generate a few keys', function(done) {
     var promises = [];
-    for (var i = 0; i < 10; i ++) {
+    for (var j = 0; j < 10; j ++) {
       promises.push(keyManager.generate());
     }
     Promise.all(promises).then(function(generated) {
@@ -43,8 +43,8 @@ describe('Encryption Key Manager', function() {
 
   it('should verify that keys do not equal each other', function() {
     if (! keys) this.skip();
-    for (var i = 0; i < keys.length - 1; i++) {
-      for (var j = i + 1; j < keys.length; j++) {
+    for (var i = 0; i < keys.length - 1; i ++) {
+      for (var j = i + 1; j < keys.length; j ++) {
         expect(keys[i].equals(keys[j])).to.be.false;
       }
     }
@@ -53,8 +53,8 @@ describe('Encryption Key Manager', function() {
   it('should return a valid random key', function(done) {
     if (! keys) this.skip();
     keyManager.get().then(function(key) {
-      for (var i = 0; i < keys.length; i++) {
-        if (keys[i].uuid == key.uuid) return done();
+      for (var i = 0; i < keys.length; i ++) {
+        if (keys[i].uuid === key.uuid) return done();
       }
       done(new Error('Non cached key ' + key.uuid));
     })
@@ -63,22 +63,22 @@ describe('Encryption Key Manager', function() {
 
   it('should return a valid random key across many', function(done) {
     var promises = [];
-    for (var i = 0; i < 1000; i ++) {
+    for (var j = 0; j < 1000; j ++) {
       promises.push(keyManager.get());
     }
     Promise.all(promises).then(function(gotten) {
       expect(gotten.length).to.equal(promises.length);
 
-      var keys = {};
+      var randomKeys = {};
       for (var i = 0; i < gotten.length; i ++) {
         expect(gotten[i].uuid).to.be.a('string');
         expect(gotten[i].deleted_at).to.be.null;
-        var count = (keys[gotten[i].uuid] || 0) + 1
-        keys[gotten[i].uuid] = count;
+        var count = (randomKeys[gotten[i].uuid] || 0) + 1;
+        randomKeys[gotten[i].uuid] = count;
       }
 
-      expect(Object.keys(keys).length).to.equal(10);
-      //console.log('Keys Distribution: ' + JSON.stringify(keys, null, 2));
+      expect(Object.keys(randomKeys).length).to.equal(10);
+      //console.log('Keys Distribution: ' + JSON.stringify(randomKeys, null, 2));
       done();
     })
     .catch(done);
@@ -86,13 +86,13 @@ describe('Encryption Key Manager', function() {
 
   it('should load the generated keys', function(done) {
     var promises = [];
-    for (var i = 0; i < keys.length; i ++) {
-      promises.push(keyManager.load(keys[i].uuid));
+    for (var j = 0; j < keys.length; j ++) {
+      promises.push(keyManager.load(keys[j].uuid));
     }
 
     Promise.all(promises).then(function(loaded) {
       expect(loaded.length).to.equal(keys.length);
-      for (var i = 0; i < keys.length; i++) {
+      for (var i = 0; i < keys.length; i ++) {
         expect(loaded[i].uuid).to.be.a('string');
         expect(loaded[i].encrypt).to.be.a('function');
         expect(loaded[i].decrypt).to.be.a('function');
@@ -111,7 +111,7 @@ describe('Encryption Key Manager', function() {
   it('should load the generated keys in one go', function(done) {
     keyManager.loadAll().then(function(loaded) {
       expect(loaded).to.be.an('object');
-      for (var i = 0; i < keys.length; i++) {
+      for (var i = 0; i < keys.length; i ++) {
         expect(loaded[keys[i].uuid]).to.exist;
         expect(loaded[keys[i].uuid].equals(keys[i])).to.be.true;
       }
@@ -122,8 +122,8 @@ describe('Encryption Key Manager', function() {
 
   it('should delete half of the keys', function(done) {
     var promises = [];
-    for (var i = 0; i < keys.length; i += 2) {
-      promises.push(keyManager.delete(keys[i].uuid));
+    for (var j = 0; j < keys.length; j += 2) {
+      promises.push(keyManager.delete(keys[j].uuid));
     }
 
     Promise.all(promises).then(function(deleted) {
@@ -144,22 +144,22 @@ describe('Encryption Key Manager', function() {
 
   it('should never return a deleted key when randomly getting it', function(done) {
     var promises = [];
-    for (var i = 0; i < 1000; i ++) {
+    for (var j = 0; j < 1000; j ++) {
       promises.push(keyManager.get());
     }
     Promise.all(promises).then(function(gotten) {
       expect(gotten.length).to.equal(promises.length);
 
-      var keys = {};
+      var randomKeys = {};
       for (var i = 0; i < gotten.length; i ++) {
         expect(gotten[i].uuid).to.be.a('string');
         expect(gotten[i].deleted_at).to.be.null;
-        var count = (keys[gotten[i].uuid] || 0) + 1
-        keys[gotten[i].uuid] = count;
+        var count = (randomKeys[gotten[i].uuid] || 0) + 1;
+        randomKeys[gotten[i].uuid] = count;
       }
 
-      expect(Object.keys(keys).length).to.equal(5);
-      //console.log('Keys Distribution: ' + JSON.stringify(keys, null, 2));
+      expect(Object.keys(randomKeys).length).to.equal(5);
+      //console.log('Keys Distribution: ' + JSON.stringify(randomKeys, null, 2));
       done();
     })
     .catch(done);
@@ -167,15 +167,15 @@ describe('Encryption Key Manager', function() {
 
   it('should always return a deleted key when directly getting it', function(done) {
     var promises = [];
-    for (var i = 0; i < keys.length; i ++) {
-      promises.push(keyManager.get(keys[i].uuid));
+    for (var j = 0; j < keys.length; j ++) {
+      promises.push(keyManager.get(keys[j].uuid));
     }
 
     Promise.all(promises).then(function(gotten) {
       expect(gotten.length).to.equal(keys.length);
       for (var i = 0; i < gotten.length; i ++) {
         expect(gotten[i].equals(keys[i])).to.be.true;
-        expect(gotten[i].deleted_at == null).to.equal(i % 2 != 0);
+        expect(gotten[i].deleted_at == null).to.equal(i % 2 !== 0);
       }
 
       done();
@@ -185,11 +185,11 @@ describe('Encryption Key Manager', function() {
 
   it('should create a new key when all available ones are deleted', function(done) {
     var promises = [];
-    for (var i = 0; i < keys.length; i ++) {
-      promises.push(keyManager.delete(keys[i].uuid));
+    for (var j = 0; j < keys.length; j ++) {
+      promises.push(keyManager.delete(keys[j].uuid));
     }
 
-    var all_deleted_keys = null;
+    var allDeletedKeys = null;
     Promise.all(promises).then(function(deleted) {
       expect(deleted.length).to.equal(keys.length);
       return keyManager.loadAll(); // reload all
@@ -199,11 +199,11 @@ describe('Encryption Key Manager', function() {
       for (var i = 0; i < loaded.length; i ++) {
         expect(loaded[i].deleted_at).to.be.instanceof(Date);
       }
-      all_deleted_keys = loaded;
+      allDeletedKeys = loaded;
       return keyManager.get();
     })
     .then(function(generated) {
-      expect(all_deleted_keys[generated.uuid]).to.not.exist;
+      expect(allDeletedKeys[generated.uuid]).to.not.exist;
       expect(generated.uuid).to.be.a('string');
       expect(generated.encrypt).to.be.a('function');
       expect(generated.decrypt).to.be.a('function');
@@ -236,7 +236,7 @@ describe('Encryption Key Manager', function() {
           done();
         })
         .catch(done);
-    })
+    });
 
     it('should encrypt and decrypt a string with a key', function(done) {
       var string = 'The quick brown fox jumped over the lazy dog!';
@@ -255,7 +255,7 @@ describe('Encryption Key Manager', function() {
           done();
         })
         .catch(done);
-    })
+    });
 
     it('should encrypt and decrypt a JSON object with a key', function(done) {
       var object = { number: 1, string: 'The quick brown fox jumped over the lazy dog!', boolean: true };
@@ -274,8 +274,8 @@ describe('Encryption Key Manager', function() {
           done();
         })
         .catch(done);
-    })
-  })
+    });
+  });
 
   /* ======================================================================== */
 
@@ -297,7 +297,7 @@ describe('Encryption Key Manager', function() {
           done();
         })
         .catch(done);
-    })
+    });
 
     it('should encrypt and decrypt a string', function(done) {
       var string = 'The quick brown fox jumped over the lazy dog!';
@@ -316,7 +316,7 @@ describe('Encryption Key Manager', function() {
           done();
         })
         .catch(done);
-    })
+    });
 
     it('should encrypt and decrypt a JSON object', function(done) {
       var object = { number: 1, string: 'The quick brown fox jumped over the lazy dog!', boolean: true };

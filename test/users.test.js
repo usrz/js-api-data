@@ -118,13 +118,15 @@ describe('Users', function() {
             user = created;
             attr = attributes;
             done();
-          })
+          });
       })
       .catch(done);
-  })
+  });
 
   describe('Single user', function() {
-    before(function() { if (!user) this.skip() });
+    before(function() {
+      if (! user) this.skip();
+    });
 
     it('should get the user by uuid', function(done) {
       if (! user) return this.skip();
@@ -134,7 +136,7 @@ describe('Users', function() {
           done();
         })
         .catch(done);
-    })
+    });
 
     it('should get the user by email address', function(done) {
       if (! user) return this.skip();
@@ -144,10 +146,10 @@ describe('Users', function() {
           done();
         })
         .catch(done);
-    })
+    });
 
     it('should modify our created user', function(done) {
-      if (!user) this.skip();
+      if (! user) this.skip();
 
       users.modify(user.uuid, {email: 'test1@example.org', password: 'different'})
         .then(function(modified) {
@@ -161,10 +163,10 @@ describe('Users', function() {
               expect(attributes.email).to.equal('test1@example.org');
               expect(attributes.password).to.not.exist;
               expect(attributes.credentials.kdf_spec).to.eql({
-                algorithm: 'PBKDF2',
+                algorithm:          'PBKDF2',
                 derived_key_length: 20,
-                iterations: 100000,
-                hash: 'SHA-1'
+                iterations:         100000,
+                hash:               'SHA-1'
               });
               expect(attributes.credentials.salt).to.be.a('string');
               expect(attributes.credentials.server_key).to.be.a('string');
@@ -178,10 +180,10 @@ describe('Users', function() {
               user = modified;
               attr = attributes;
               done();
-            })
+            });
         })
         .catch(done);
-    })
+    });
 
     it('should get the user by its new email address', function(done) {
       if (! user) return this.skip();
@@ -191,7 +193,7 @@ describe('Users', function() {
           done();
         })
         .catch(done);
-    })
+    });
 
     it('should not get the user by its old email address', function(done) {
       if (! user) return this.skip();
@@ -201,18 +203,19 @@ describe('Users', function() {
           done();
         })
         .catch(done);
-    })
-  })
+    });
+  });
 
   describe('Multiple users', function() {
-    before(function() { if (!user) this.skip() });
+    before(function() {
+      if (! user) this.skip();
+    });
 
     var user2 = null;
-    var attr2 = null;
 
     it('should not create another user with the same email', function(done) {
       users.create(domain.uuid, {email: 'test1@example.org', name: 'A Different User', password: 'password'})
-        .then(function(result) {
+        .then(function() {
           throw new Error('Should have not been created');
         }, function(error) {
           // Duplicated by our existing user!
@@ -221,16 +224,16 @@ describe('Users', function() {
           done();
         })
         .catch(done);
-    })
+    });
 
     it('should not create another user with the same posix user name', function(done) {
-      users.create(domain.uuid, { email: 'testX@example.org',
-                                  name: 'A Different User',
-                                  password: 'password',
+      users.create(domain.uuid, { email:      'testX@example.org',
+                                  name:       'A Different User',
+                                  password:   'password',
                                   posix_name: 'test_user',
-                                  posix_uid: 10001,
-                                  posix_gid: 10002 })
-        .then(function(result) {
+                                  posix_uid:  10001,
+                                  posix_gid:  10002 })
+        .then(function() {
           throw new Error('Should have not been created');
         }, function(error) {
           // Duplicated by our existing user!
@@ -239,7 +242,7 @@ describe('Users', function() {
           done();
         })
         .catch(done);
-    })
+    });
 
 
     it('should create another user with a different email address', function(done) {
@@ -251,10 +254,10 @@ describe('Users', function() {
               expect(attributes.name).to.equal('A Different User');
               expect(attributes.email).to.equal('test2@example.org');
               expect(attributes.credentials.kdf_spec).to.eql({
-                algorithm: 'PBKDF2',
+                algorithm:          'PBKDF2',
                 derived_key_length: 20,
-                iterations: 100000,
-                hash: 'SHA-1'
+                iterations:         100000,
+                hash:               'SHA-1'
               });
               expect(attributes.credentials.salt).to.be.a('string');
               expect(attributes.credentials.server_key).to.be.a('string');
@@ -262,14 +265,14 @@ describe('Users', function() {
               expect(attributes.credentials.hash).to.equal('SHA-256');
               user2 = created;
               done();
-            })
+            });
         })
         .catch(done);
-    })
+    });
 
     it('should not allow modifications to an existing email address', function(done) {
       users.modify(user2.uuid, {email: 'test1@example.org'})
-        .then(function(modified) {
+        .then(function() {
           throw new Error('Should have not been modified');
         }, function(error) {
           expect(error.owner).to.equal(user2.uuid);
@@ -288,7 +291,7 @@ describe('Users', function() {
           done();
         })
         .catch(done);
-    })
+    });
 
     it('should reassign the email and posix attributes from a deleted user', function(done) {
       users.delete(user.uuid)
@@ -304,10 +307,10 @@ describe('Users', function() {
               expect(attributes.posix_uid).to.equal(10000);
               expect(attributes.posix_gid).to.equal(20000);
               return users.modify(user2.uuid, {
-                  email: attributes.email,
+                  email:      attributes.email,
                   posix_name: attributes.posix_name.toUpperCase(), // case!
-                  posix_uid: attributes.posix_uid,
-                  posix_gid: attributes.posix_gid
+                  posix_uid:  attributes.posix_uid,
+                  posix_gid:  attributes.posix_gid
                 });
             });
         })
@@ -317,10 +320,9 @@ describe('Users', function() {
             .then(function(attributes) {
               expect(attributes.email).to.equal('test1@example.org');
               user2 = modified;
-              attr2 = attributes;
 
               // Now get all the users for the domain...
-              return users.domain(domain.uuid)
+              return users.domain(domain.uuid);
             });
         })
         .then(function(list) {
@@ -339,7 +341,6 @@ describe('Users', function() {
           done();
         })
         .catch(done);
-    })
-
-  })
+    });
+  });
 });

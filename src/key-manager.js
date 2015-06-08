@@ -159,9 +159,9 @@ class KeyManager {
 
     // Wrap the global encryption key
     key = new Key(UUID.NULL, key);
-    const ns_key = crypto.createHmac('sha512', key[ENCRYPTION_KEY])
-                         .update(new Buffer('Indexing Key', 'utf8'))
-                         .digest();
+    const namespaceKey = crypto.createHmac('sha512', key[ENCRYPTION_KEY])
+                               .update(new Buffer('Indexing Key', 'utf8'))
+                               .digest();
 
     // Access to our database (RO/RW)
     if (! (client instanceof DbClient)) throw new Error('Database client not specified or invalid');
@@ -321,7 +321,7 @@ class KeyManager {
 
     this.namespace = function namespace(scope) {
       var uuid = scope ? new UUID(scope) : UUID.NULL;
-      return UUID.v5(uuid, ns_key);
+      return UUID.v5(uuid, namespaceKey);
     };
 
     // Freeze ourselves

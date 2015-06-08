@@ -151,11 +151,9 @@ class DbStore extends EventEmitter {
     var sql = 'SELECT * FROM "'
             + (includeDeleted ? 'available_objects' : 'objects' )
             + '" WHERE "uuid" = $1::uuid';
-    var args = [ uuid ];
 
     // Insert the SQL and invoke
-    args.unshift(sql);
-    return query.apply(null, args)
+    return query(sql, uuid)
       .then(function(result) {
         if ((! result) || (! result.rows) || (! result.rows[0])) return null;
         return new DbObject(result.rows[0], self[KEY_MANAGER]);
@@ -207,8 +205,7 @@ class DbStore extends EventEmitter {
     }
 
     // Insert the SQL and invoke
-    args.unshift(sql);
-    return query.apply(null, args)
+    return query(sql, args)
       .then(function(result) {
         if ((! result) || (! result.rows) || (! result.rows[0])) return {};
         var objects = {};

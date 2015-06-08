@@ -59,18 +59,24 @@ class Users extends DbStore.Simple {
     // A function that will index the attributes
     function indexer(attributes, query, object) {
 
-      // Index email in "null" (global) scope
-      var promise = index.index(null, object.uuid, { email: attributes.email }, query);
-      if (! attributes.posix_name) return promise;
+      // Our array of promises
+      var promises = [];
 
-      // Optionally index all POSIX attributes
-      return Promise.all([ promise,
-        index.index(object.parent, object.uuid, {
-            posix_name: attributes.posix_name,
-            posix_uid:  attributes.posix_uid,
-            posix_gid:  attributes.posix_gid
-          }, query)
-        ]);
+      // Index email in "null" (global) scope
+      promises.push(index.index(null, object.uuid, {
+          email: attributes.email
+        }, query));
+
+      // Index email also in the domain, plus posix attributes.
+      promises.push(index.index(object.parent, object.uuid, {
+          email:      attributes.email,
+          posix_name: attributes.posix_name,
+          posix_uid:  attributes.posix_uid,
+          posix_gid:  attributes.posix_gid
+        }, query));
+
+      // Combine our promises
+      return Promise.all(promises);
     }
 
     // Remember those for the methods below

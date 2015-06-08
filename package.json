@@ -1,21 +1,28 @@
 {
-  "name": "usrz-api",
-  "version": "1.0.0",
+  "name": "usrz-api-data",
   "description": "Base API for USRZ.COM",
-  "main": "index.js",
+  "version": "1.0.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/usrz/js-api-data.git"
+  },
+  "author": {
+    "email": "pier@usrz.com",
+    "name": "Pier Fumagalli"
+  },
+  "scripts": {
+    "test": "gulp"
+  },
   "dependencies": {
-    "joi": "git+ssh://git@github.com/usrz/joi.git",
+    "joi": "git://github.com/hapijs/joi.git",
     "pg": "^4.3.0"
   },
   "devDependencies": {
     "chai": "^3.0.0",
     "gulp": "^3.9.0",
+    "gulp-eslint": "^0.13.2",
     "gulp-mocha": "^2.1.1",
     "run-sequence": "^1.1.0"
-  },
-  "scripts": {
-    "test": "gulp"
-  },
-  "author": "",
-  "license": "ISC"
+  }
 }

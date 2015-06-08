@@ -95,8 +95,8 @@ class DbIndex {
           // Calculate the V5 UUID value to check as a duplicate,
           // then to be inserted in the db, and finally returned
           var namespace = self[NAMESPACE](scope);
-          var keyid = UUID.v5(namespace, key);
-          var value = UUID.v5(namespace, key + ':' + attributes[key]);
+          var keyid = UUID.v5(namespace, '' + key);
+          var value = UUID.v5(namespace, '' + attributes[key]);
           values[key] = value;
           keys[value] = key;
 
@@ -248,15 +248,17 @@ class DbIndex {
         var sql = 'SELECT "objects".*'
                  + ' FROM "objects_index", "objects"'
                 + ' WHERE "objects"."uuid" = "objects_index"."owner"'
-                  + ' AND "value" = $1::uuid '
+                  + ' AND "keyid" = $1::uuid '
+                  + ' AND "value" = $2::uuid '
                   + ' AND "scope"';
 
         // Calculate the attribute V5 UUID
-        var params = [ UUID.v5(namespace, key + ':' + value) ];
+        var params = [ UUID.v5(namespace, '' + key),
+                       UUID.v5(namespace, '' + value) ];
 
         // See about that NULL check
         if (scope) {
-          sql += '= $2::uuid';
+          sql += '= $3::uuid';
           params.push(scope);
         } else {
           sql += 'IS NULL';

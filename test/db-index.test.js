@@ -49,8 +49,8 @@ describe('Database Index', function() {
         // Simple initial indexing
         .then(function(result) {
           expect(result).to.eql({
-            foo: 'dac5e02a-72c3-5076-8696-11b2486f919f',
-            baz: '79befed0-ec88-5b78-af24-56c1e25419fe'
+            foo: 'dfb0c114-f376-509a-89dd-4a09c6bb3a4f',
+            baz: '448c77fc-ce36-585f-9030-d23ee7f8600f'
           });
           return index.index(scope2, owner1, attributes); // different scope
         })
@@ -58,8 +58,8 @@ describe('Database Index', function() {
         // Same attributes, different scope
         .then(function(result) {
           expect(result).to.eql({
-            foo: '0797fc5e-5ab9-58e6-8e07-2a809b0884d7',
-            baz: 'd4078371-5f7c-579e-a5e8-4bf7b9beae6e'
+            foo: '6554b7c2-e798-566d-af6e-8bbcce7ca008',
+            baz: 'a43e0582-c1c3-56f6-8192-b0fa02dc0e72'
           });
           return index.index(scope1, owner2, attributes); // different owner
         })
@@ -83,8 +83,8 @@ describe('Database Index', function() {
         // Different values after error above
         .then(function(result) {
           expect(result).to.eql({
-            foo: '70c4642a-cc51-5c7b-9948-5143d11511fe',
-            baz: '77b746be-bb98-5122-a9ca-c7730ce967e2'
+            foo: 'ed56dc61-7cc3-53b6-aff6-9b0b2dd2d7bc',
+            baz: '3fe33ae1-2b4e-5e4d-a7bb-03a863d5918c'
           });
           return client.read('SELECT "scope", "owner", "keyid", "value" FROM "objects_index"');
         })
@@ -93,14 +93,14 @@ describe('Database Index', function() {
         .then(function(result) {
           expect(result.rows.length).to.equal(6);
           expect(result.rows).to.deep.include.members([
-            { scope: scope1, owner: owner1, keyid: '894eb3b4-09d7-54a9-b0f6-00119e9f484f', value: 'dac5e02a-72c3-5076-8696-11b2486f919f' }, // foo:bar
-            { scope: scope1, owner: owner1, keyid: 'ed56dc61-7cc3-53b6-aff6-9b0b2dd2d7bc', value: '79befed0-ec88-5b78-af24-56c1e25419fe' }, // baz:123
+            { scope: scope1, owner: owner1, keyid: '894eb3b4-09d7-54a9-b0f6-00119e9f484f', value: 'dfb0c114-f376-509a-89dd-4a09c6bb3a4f' }, // foo:bar
+            { scope: scope1, owner: owner1, keyid: 'ed56dc61-7cc3-53b6-aff6-9b0b2dd2d7bc', value: '448c77fc-ce36-585f-9030-d23ee7f8600f' }, // baz:123
 
-            { scope: scope1, owner: owner2, keyid: '894eb3b4-09d7-54a9-b0f6-00119e9f484f', value: '70c4642a-cc51-5c7b-9948-5143d11511fe' }, // foo:baz
-            { scope: scope1, owner: owner2, keyid: 'ed56dc61-7cc3-53b6-aff6-9b0b2dd2d7bc', value: '77b746be-bb98-5122-a9ca-c7730ce967e2' }, // baz:321
+            { scope: scope1, owner: owner2, keyid: '894eb3b4-09d7-54a9-b0f6-00119e9f484f', value: 'ed56dc61-7cc3-53b6-aff6-9b0b2dd2d7bc' }, // foo:baz
+            { scope: scope1, owner: owner2, keyid: 'ed56dc61-7cc3-53b6-aff6-9b0b2dd2d7bc', value: '3fe33ae1-2b4e-5e4d-a7bb-03a863d5918c' }, // baz:321
 
-            { scope: scope2, owner: owner1, keyid: '4944c962-5a16-5846-a2a7-c17a0336f064', value: '0797fc5e-5ab9-58e6-8e07-2a809b0884d7' }, // foo:baz
-            { scope: scope2, owner: owner1, keyid: '6120402b-841e-542e-a843-2a0962a7dc0d', value: 'd4078371-5f7c-579e-a5e8-4bf7b9beae6e' }  // baz:321
+            { scope: scope2, owner: owner1, keyid: '4944c962-5a16-5846-a2a7-c17a0336f064', value: '6554b7c2-e798-566d-af6e-8bbcce7ca008' }, // foo:baz
+            { scope: scope2, owner: owner1, keyid: '6120402b-841e-542e-a843-2a0962a7dc0d', value: 'a43e0582-c1c3-56f6-8192-b0fa02dc0e72' }  // baz:321
           ]);
           ok = true;
           done();
@@ -180,7 +180,7 @@ describe('Database Index', function() {
       var attributes = { unscoped: 'yes' };
       index.index(null, owner1, attributes)
         .then(function(result) {
-          expect(result).to.eql({ unscoped: 'ffa03ae5-85af-5dff-9c33-c5d26328a51a' });
+          expect(result).to.eql({ unscoped: 'f80c3628-2790-5bca-8d6f-b17dc28f0c6f' });
           return index.index(null, owner2, attributes); // different owner
         })
         .catch(function(error) {
@@ -192,14 +192,14 @@ describe('Database Index', function() {
           return index.index(null, owner2, { unscoped: 123 }); // different values (reindex)
         })
         .then(function(result) {
-          expect(result).to.eql({ unscoped: '160f3b4c-93e0-5f59-9c24-783597542170' });
+          expect(result).to.eql({ unscoped: '9dd507a5-68ce-5820-8501-7ad9c0b8b815' });
           return client.read('SELECT "owner", "keyid", "value" FROM "objects_index" WHERE "scope" IS NULL');
         })
         .then(function(result) {
           expect(result.rows.length).to.equal(2);
           expect(result.rows).to.deep.include.members([
-            { owner: owner1, keyid: '4fc77daa-1ef0-530b-9df7-3d15e6461884', value: 'ffa03ae5-85af-5dff-9c33-c5d26328a51a' }, // unscoped:yes
-            { owner: owner2, keyid: '4fc77daa-1ef0-530b-9df7-3d15e6461884', value: '160f3b4c-93e0-5f59-9c24-783597542170' }  // unscoped:123
+            { owner: owner1, keyid: '4fc77daa-1ef0-530b-9df7-3d15e6461884', value: 'f80c3628-2790-5bca-8d6f-b17dc28f0c6f' }, // unscoped:yes
+            { owner: owner2, keyid: '4fc77daa-1ef0-530b-9df7-3d15e6461884', value: '9dd507a5-68ce-5820-8501-7ad9c0b8b815' }  // unscoped:123
           ]);
           ok = true;
           done();

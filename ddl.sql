@@ -253,7 +253,8 @@ CREATE VIEW available_objects AS
 -- scope      -> the key that groups all hashed values together (eg. domain)
 --               or "NULL" if this is a global (unscoped) attribute.
 -- owner      -> owner of the indexed value (eg. a user in the scoped domain)
--- value      -> UUIDv5 (hashed) from the scope UUID and "key:value" (string)
+-- keyid      -> UUIDv5 (hashed) of scope UUID and attribute key (string)
+-- value      -> UUIDv5 (hashed) of scope UUID and attribute value (string)
 -- indexed_at -> when the value was indexed.
 --
 CREATE TABLE "objects_index" (
@@ -269,8 +270,8 @@ CREATE TABLE "objects_index" (
 );
 
 -- Unique constraint for scope -> value
-CREATE UNIQUE INDEX ON "objects_index" (value)        WHERE "scope" IS     NULL;
-CREATE UNIQUE INDEX ON "objects_index" (value, scope) WHERE "scope" IS NOT NULL;
+CREATE UNIQUE INDEX ON "objects_index" (keyid, value)        WHERE "scope" IS     NULL;
+CREATE UNIQUE INDEX ON "objects_index" (keyid, value, scope) WHERE "scope" IS NOT NULL;
 
 
 -- * ========================================================================= *

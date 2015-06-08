@@ -10,7 +10,8 @@
   "devDependencies": {
     "chai": "^3.0.0",
     "gulp": "^3.9.0",
-    "gulp-mocha": "^2.1.1"
+    "gulp-mocha": "^2.1.1",
+    "run-sequence": "^1.1.0"
   },
   "scripts": {
     "test": "gulp"

@@ -1,4 +1,5 @@
-'use strict'
+/*eslint no-unused-expressions: 0*/
+'use strict';
 
 const expect = require('chai').expect;
 const KeyManager = require('../src/key-manager');
@@ -22,17 +23,17 @@ describe('Users', function() {
     var keyManager = new KeyManager(masterKey, testdb.client);
     domains = new Domains(keyManager, testdb.client);
     users = new Users(keyManager, testdb.client);
-    domains.create({ name: "Test Domain", domain_name: "example.com" })
+    domains.create({ name: 'Test Domain', domain_name: 'example.com' })
       .then(function(created) {
         domain = created;
         done();
       }, done);
-  })
+  });
   after(testdb.after);
 
   it('should not create with an invalid domain', function(done) {
-    users.create('4b46e47d-e3ca-4ed5-a9ba-952359f4374d', {email: "test@example.org"})
-      .then(function(created) {
+    users.create('4b46e47d-e3ca-4ed5-a9ba-952359f4374d', {email: 'test@example.org'})
+      .then(function() {
         throw new Error('Nothing should have been created');
       }, function(error) {
         expect(error.message).to.equal('Invalid parent 4b46e47d-e3ca-4ed5-a9ba-952359f4374d');
@@ -42,8 +43,8 @@ describe('Users', function() {
   });
 
   it('should not create with invalid attributes', function(done) {
-    users.create(domain.uuid, {email: "phony", name: 123, password: "foobar"})
-      .then(function(created) {
+    users.create(domain.uuid, {email: 'phony', name: 123, password: 'foobar'})
+      .then(function() {
         throw new Error('Nothing should have been created');
       }, function(error) {
         expect(error.details[0].message).to.equal('"name" must be a string');
@@ -54,11 +55,11 @@ describe('Users', function() {
   });
 
   it('should not create with missing posix attributes', function(done) {
-    users.create(domain.uuid, {email: "posix@example.org",
-                               name: "Test User",
-                               password: "password",
-                               posix_name: "nouidgid"})
-      .then(function(created) {
+    users.create(domain.uuid, {email:      'posix@example.org',
+                               name:       'Test User',
+                               password:   'password',
+                               posix_name: 'nouidgid'})
+      .then(function() {
         throw new Error('Nothing should have been created');
       }, function(error) {
         expect(error.details[0].message).to.match(/"value" contains \[posix_name\] without its required peers/);
@@ -69,13 +70,13 @@ describe('Users', function() {
   });
 
   it('should not create with invalid posix attributes', function(done) {
-    users.create(domain.uuid, {email: "posix@example.org",
-                               name: "Test User",
-                               password: "password",
-                               posix_name: "my user",
-                               posix_uid: 0,
-                               posix_gid: "grp"})
-      .then(function(created) {
+    users.create(domain.uuid, {email:      'posix@example.org',
+                               name:       'Test User',
+                               password:   'password',
+                               posix_name: 'my user',
+                               posix_uid:  0,
+                               posix_gid:  'grp'})
+      .then(function() {
         throw new Error('Nothing should have been created');
       }, function(error) {
         expect(error.details.length).to.equal(3);
@@ -88,27 +89,27 @@ describe('Users', function() {
   });
 
   it('should create a valid user', function(done) {
-    users.create(domain.uuid, { email: "test@example.org",
-                                name: " Test\r\nUser ",
-                                password: 'password',
-                                posix_name: " Test_User ", // mixed case!
-                                posix_uid: 10000,
-                                posix_gid: 20000 })
+    users.create(domain.uuid, { email:      'test@example.org',
+                                name:       ' Test\r\nUser ',
+                                password:   'password',
+                                posix_name: ' Test_User ', // mixed case!
+                                posix_uid:  10000,
+                                posix_gid:  20000 })
       .then(function(created) {
         expect(created).to.exist;
         return created.attributes()
           .then(function(attributes) {
-            expect(attributes.name).to.equal("Test User"); // normalized
-            expect(attributes.email).to.equal("test@example.org");
-            expect(attributes.posix_name).to.equal("test_user"); // trimmed
+            expect(attributes.name).to.equal('Test User'); // normalized
+            expect(attributes.email).to.equal('test@example.org');
+            expect(attributes.posix_name).to.equal('test_user'); // trimmed
             expect(attributes.posix_uid).to.equal(10000);
             expect(attributes.posix_gid).to.equal(20000);
             expect(attributes.password).to.not.exist;
             expect(attributes.credentials.kdf_spec).to.eql({
-              algorithm: "PBKDF2",
+              algorithm:          'PBKDF2',
               derived_key_length: 20,
-              iterations: 100000,
-              hash: "SHA-1"
+              iterations:         100000,
+              hash:               'SHA-1'
             });
             expect(attributes.credentials.salt).to.be.a('string');
             expect(attributes.credentials.server_key).to.be.a('string');
@@ -117,13 +118,15 @@ describe('Users', function() {
             user = created;
             attr = attributes;
             done();
-          })
+          });
       })
       .catch(done);
-  })
+  });
 
   describe('Single user', function() {
-    before(function() { if (!user) this.skip() });
+    before(function() {
+      if (! user) this.skip();
+    });
 
     it('should get the user by uuid', function(done) {
       if (! user) return this.skip();
@@ -133,7 +136,7 @@ describe('Users', function() {
           done();
         })
         .catch(done);
-    })
+    });
 
     it('should get the user by email address', function(done) {
       if (! user) return this.skip();
@@ -143,12 +146,12 @@ describe('Users', function() {
           done();
         })
         .catch(done);
-    })
+    });
 
     it('should modify our created user', function(done) {
-      if (!user) this.skip();
+      if (! user) this.skip();
 
-      users.modify(user.uuid, {email: "test1@example.org", password: 'different'})
+      users.modify(user.uuid, {email: 'test1@example.org', password: 'different'})
         .then(function(modified) {
           expect(modified).to.be.not.null;
           expect(modified.created_at.getTime()).to.equal(user.created_at.getTime());
@@ -156,14 +159,14 @@ describe('Users', function() {
 
           return modified.attributes()
             .then(function(attributes) {
-              expect(attributes.name).to.equal("Test User"); // normalized
-              expect(attributes.email).to.equal("test1@example.org");
+              expect(attributes.name).to.equal('Test User'); // normalized
+              expect(attributes.email).to.equal('test1@example.org');
               expect(attributes.password).to.not.exist;
               expect(attributes.credentials.kdf_spec).to.eql({
-                algorithm: "PBKDF2",
+                algorithm:          'PBKDF2',
                 derived_key_length: 20,
-                iterations: 100000,
-                hash: "SHA-1"
+                iterations:         100000,
+                hash:               'SHA-1'
               });
               expect(attributes.credentials.salt).to.be.a('string');
               expect(attributes.credentials.server_key).to.be.a('string');
@@ -177,10 +180,10 @@ describe('Users', function() {
               user = modified;
               attr = attributes;
               done();
-            })
+            });
         })
         .catch(done);
-    })
+    });
 
     it('should get the user by its new email address', function(done) {
       if (! user) return this.skip();
@@ -190,7 +193,7 @@ describe('Users', function() {
           done();
         })
         .catch(done);
-    })
+    });
 
     it('should not get the user by its old email address', function(done) {
       if (! user) return this.skip();
@@ -200,18 +203,19 @@ describe('Users', function() {
           done();
         })
         .catch(done);
-    })
-  })
+    });
+  });
 
   describe('Multiple users', function() {
-    before(function() { if (!user) this.skip() });
+    before(function() {
+      if (! user) this.skip();
+    });
 
     var user2 = null;
-    var attr2 = null;
 
     it('should not create another user with the same email', function(done) {
-      users.create(domain.uuid, {email: "test1@example.org", name: 'A Different User', password: 'password'})
-        .then(function(result) {
+      users.create(domain.uuid, {email: 'test1@example.org', name: 'A Different User', password: 'password'})
+        .then(function() {
           throw new Error('Should have not been created');
         }, function(error) {
           // Duplicated by our existing user!
@@ -220,16 +224,16 @@ describe('Users', function() {
           done();
         })
         .catch(done);
-    })
+    });
 
     it('should not create another user with the same posix user name', function(done) {
-      users.create(domain.uuid, { email: "testX@example.org",
-                                  name: 'A Different User',
-                                  password: 'password',
+      users.create(domain.uuid, { email:      'testX@example.org',
+                                  name:       'A Different User',
+                                  password:   'password',
                                   posix_name: 'test_user',
-                                  posix_uid: 10001,
-                                  posix_gid: 10002 })
-        .then(function(result) {
+                                  posix_uid:  10001,
+                                  posix_gid:  10002 })
+        .then(function() {
           throw new Error('Should have not been created');
         }, function(error) {
           // Duplicated by our existing user!
@@ -238,22 +242,22 @@ describe('Users', function() {
           done();
         })
         .catch(done);
-    })
+    });
 
 
     it('should create another user with a different email address', function(done) {
-      users.create(domain.uuid, {email: "test2@example.org", name: "A Different User", password: 'password'})
+      users.create(domain.uuid, {email: 'test2@example.org', name: 'A Different User', password: 'password'})
         .then(function(created) {
           expect(created).to.be.not.null;
           return created.attributes()
             .then(function(attributes) {
-              expect(attributes.name).to.equal("A Different User");
-              expect(attributes.email).to.equal("test2@example.org");
+              expect(attributes.name).to.equal('A Different User');
+              expect(attributes.email).to.equal('test2@example.org');
               expect(attributes.credentials.kdf_spec).to.eql({
-                algorithm: "PBKDF2",
+                algorithm:          'PBKDF2',
                 derived_key_length: 20,
-                iterations: 100000,
-                hash: "SHA-1"
+                iterations:         100000,
+                hash:               'SHA-1'
               });
               expect(attributes.credentials.salt).to.be.a('string');
               expect(attributes.credentials.server_key).to.be.a('string');
@@ -261,14 +265,14 @@ describe('Users', function() {
               expect(attributes.credentials.hash).to.equal('SHA-256');
               user2 = created;
               done();
-            })
+            });
         })
         .catch(done);
-    })
+    });
 
     it('should not allow modifications to an existing email address', function(done) {
-      users.modify(user2.uuid, {email: "test1@example.org"})
-        .then(function(modified) {
+      users.modify(user2.uuid, {email: 'test1@example.org'})
+        .then(function() {
           throw new Error('Should have not been modified');
         }, function(error) {
           expect(error.owner).to.equal(user2.uuid);
@@ -287,7 +291,7 @@ describe('Users', function() {
           done();
         })
         .catch(done);
-    })
+    });
 
     it('should reassign the email and posix attributes from a deleted user', function(done) {
       users.delete(user.uuid)
@@ -297,16 +301,16 @@ describe('Users', function() {
 
           return deleted.attributes()
             .then(function(attributes) {
-              expect(attributes.email).to.equal("test1@example.org");
+              expect(attributes.email).to.equal('test1@example.org');
               // Just check...
               expect(attributes.posix_name).to.equal('test_user');
               expect(attributes.posix_uid).to.equal(10000);
               expect(attributes.posix_gid).to.equal(20000);
               return users.modify(user2.uuid, {
-                  email: attributes.email,
+                  email:      attributes.email,
                   posix_name: attributes.posix_name.toUpperCase(), // case!
-                  posix_uid: attributes.posix_uid,
-                  posix_gid: attributes.posix_gid
+                  posix_uid:  attributes.posix_uid,
+                  posix_gid:  attributes.posix_gid
                 });
             });
         })
@@ -316,10 +320,9 @@ describe('Users', function() {
             .then(function(attributes) {
               expect(attributes.email).to.equal('test1@example.org');
               user2 = modified;
-              attr2 = attributes;
 
               // Now get all the users for the domain...
-              return users.domain(domain.uuid)
+              return users.domain(domain.uuid);
             });
         })
         .then(function(list) {
@@ -338,7 +341,6 @@ describe('Users', function() {
           done();
         })
         .catch(done);
-    })
-
-  })
+    });
+  });
 });

@@ -127,7 +127,7 @@ class DbStore extends EventEmitter {
    * Select a single record out of the DB                                     *
    * ------------------------------------------------------------------------ */
 
-  select(uuid, kind, includeDeleted, query) {
+  select(uuid, includeDeleted, query) {
     var self = this;
 
     // Null for invalid UUIDs
@@ -135,15 +135,7 @@ class DbStore extends EventEmitter {
     if (! uuid) return Promise.resolve(null);
 
     // Check for optional parameters
-    if (util.isFunction(kind)) {
-      query = kind;
-      includeDeleted = false;
-      kind = null;
-    } else if (util.isBoolean(kind)) {
-      query = includeDeleted;
-      includeDeleted = kind;
-      kind = null;
-    } else if (util.isFunction(includeDeleted)) {
+    if (util.isFunction(includeDeleted)) {
       query = includeDeleted;
       includeDeleted = false;
     }
@@ -151,7 +143,7 @@ class DbStore extends EventEmitter {
     // No query? Connect for "SELECT" (no updates)
     if (! query) {
       return self[CLIENT].read(function(read) {
-        return self.select(uuid, kind, includeDeleted, read);
+        return self.select(uuid, includeDeleted, read);
       });
     }
 
@@ -160,12 +152,6 @@ class DbStore extends EventEmitter {
             + (includeDeleted ? 'available_objects' : 'objects' )
             + '" WHERE "uuid" = $1::uuid';
     var args = [ uuid ];
-
-    // Optional kind
-    if (kind != null) {
-      sql += ' AND "kind" = $2::kind';
-      args.push(kind);
-    }
 
     // Insert the SQL and invoke
     args.unshift(sql);
@@ -242,7 +228,7 @@ class DbStore extends EventEmitter {
     var self = this;
 
     if (! query) {
-      return self[CLIENT].write(function(transaction) {
+      return self[CLIENT].transaction(function(transaction) {
         return self.insert(kind, parent, attributes, transaction);
       });
     }
@@ -374,7 +360,7 @@ class DbStore extends EventEmitter {
 
     return query('DELETE FROM "objects" WHERE "uuid" = $1::uuid', uuid)
       .then(function() {
-        return self.select(uuid, null, true, query);
+        return self.select(uuid, true, query);
       });
   }
 }
@@ -392,66 +378,65 @@ class Simple {
     });
   }
 
-  get(uuid, includeDeleted, query) {
+  get( /* uuid, includeDeleted, query */ ) {
     var self = this;
-
-    // Optional parameter
-    if (util.isFunction(includeDeleted)) {
-      query = includeDeleted;
-      includeDeleted = false;
-    }
-
-    // Potentially, this might be called from a transaction
-    if (! query) {
-      return this.client.read(function(read) {
-        return self.store.select(uuid, self.kind, includeDeleted, read);
+    return this.store.select.apply(this.store, arguments)
+      .then(function(object) {
+        if (object && (object.kind === self.kind)) return object;
+        return null;
       });
-    }
-
-    return this.store.select(uuid, this.kind, includeDeleted, query);
   }
 
   delete(uuid, query) {
     var self = this;
 
-    // Execute all in a transaction (if one was not specified)
-    if (! query) {
-      return this.client.transaction(function(transaction) {
-        return self.store.delete(uuid, transaction);
-      });
+    // Do not use "self.get()" as we'll get extended for sure!
+    function deleteKind(transaction) {
+      return self.store.select(uuid, false, transaction)
+        .then(function(object) {
+          if (object && (object.kind === self.kind)) {
+            return self.store.delete(uuid, transaction);
+          } else {
+            return null;
+          }
+        });
     }
 
-    return this.store.delete(uuid, query);
+    // Execute all in a transaction
+    if (query) return deleteKind(query);
+    return this.client.transaction(function(transaction) {
+      return deleteKind(transaction);
+    });
   }
 
-  create(parent, attributes, query) {
-    var self = this;
-
-    // Execute all in a transaction (if one was not specified)
-    if (! query) {
-      return this.client.transaction(function(transaction) {
-        return self.store.insert(self.kind, parent, attributes, transaction);
-      });
-    }
-
-    return this.store.insert(this.kind, parent, attributes, query);
+  create( /* parent, attributes, query */ ) {
+    // Prepend our kind to the parent and invoke insert
+    var args = Array.prototype.slice.call(arguments, 0);
+    args.unshift(this.kind);
+    return this.store.insert.apply(this.store, args);
   }
 
   modify(uuid, attributes, query) {
     var self = this;
 
-    // Execute all in a transaction (if one was not specified)
-    if (! query) {
-      return this.client.transaction(function(transaction) {
-        return self.store.update(uuid, attributes, transaction);
-      });
+    // Do not use "self.get()" as we'll get extended for sure!
+    function modifyKind(transaction) {
+      return self.store.select(uuid, false, transaction)
+        .then(function(object) {
+          if (object && (object.kind === self.kind)) {
+            return self.store.update(uuid, attributes, transaction);
+          } else {
+            return null;
+          }
+        });
     }
 
-    // Modify the user
-    return this.store.update(uuid, attributes, query);
+    // Execute all in a transaction
+    if (query) return modifyKind(query);
+    return this.client.transaction(function(transaction) {
+      return modifyKind(transaction);
+    });
   }
-
-
 }
 
 /* ========================================================================== *

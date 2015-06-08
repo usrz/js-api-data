@@ -6,7 +6,8 @@
     "templateStrings": true
   },
   "env": {
-    "node": true
+    "node": true,
+    "mocha": true
   },
   "rules": {
     "camelcase": [ 1, {
@@ -26,7 +27,7 @@
         "args": "all"
       } ],
     "no-use-before-define": [ 1, "nofunc" ],
-    "quotes": [ 1, "single" ],
+    "quotes": [ 1, "single", "avoid-escape" ],
     "space-unary-ops": [ 1, {
         "words": false,
         "nonwords": true

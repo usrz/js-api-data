@@ -1,3 +1,4 @@
+/*eslint no-unused-expressions: 0, no-underscore-dangle: 0*/
 'use strict';
 
 const expect = require('chai').expect;
@@ -17,9 +18,9 @@ describe('Database Store', function() {
   var value = null;
   var vattr = null;
 
-  var attributes1 = {hello: "world", foobar: 123, object: {a: 1, b: "B"}};
+  var attributes1 = {hello: 'world', foobar: 123, object: {a: 1, b: 'B'}};
   var attributes2 = {foobar: null, gonzo: 456, object: {b: null, c: 999}};
-  var attributes3 = {hello: "world", gonzo: 456, object: {a: 1, c: 999}};
+  var attributes3 = {hello: 'world', gonzo: 456, object: {a: 1, c: 999}};
 
   before(testdb.before);
   before(function() {
@@ -28,23 +29,23 @@ describe('Database Store', function() {
     var schema = joi.object({
       invalid_key: joi.any().forbidden()
     }).unknown(true);
-    var validator = function(attributes, query, parent) {
+    var validator = function(attributes) {
       var result = joi.validate(attributes, schema, { abortEarly: false });
       if (result.error) return Promise.reject(result.error);
       return result.value;
-    }
+    };
     store = new DbStore(keyManager, testdb.client, validator);
-  })
+  });
   after(testdb.after);
 
   /* ------------------------------------------------------------------------ */
 
   it('should always construct a valid object', function() {
-    expect(function() { new DbObject() })
+    expect(function() { return new DbObject(); })
       .to.throw('No row for DB object');
-    expect(function() { new DbObject({}) })
+    expect(function() { return new DbObject({}); })
       .to.throw('No UUID for DB object');
-    expect(function() { new DbObject({ uuid: 'gonzo' }) })
+    expect(function() { return new DbObject({ uuid: 'gonzo' }); })
       .to.throw('No parent UUID for DB object');
   });
 
@@ -52,26 +53,26 @@ describe('Database Store', function() {
 
   it('should fetch null an invalid uuid', function(done) {
     store.select('mario')
-      .then(function(value) {
-        expect(value).to.be.null;
+      .then(function(existing) {
+        expect(existing).to.be.null;
         done();
       })
       .catch(done);
-  })
+  });
 
   it('should fetch null for an unknown value', function(done) {
     store.select('78adc7c5-e021-f507-81c3-51ee579c4bb4') // version "f" :-)
-      .then(function(value) {
-        expect(value).to.be.null;
+      .then(function(existing) {
+        expect(existing).to.be.null;
         done();
       })
       .catch(done);
-  })
+  });
 
   it('should not save an invalid value', function(done) {
     store.insert('validate object first', parent, { invalid_key: true })
-      .then(function(created) {
-        throw new Error('Created, but it should have not!')
+      .then(function() {
+        throw new Error('Created, but it should have not!');
       }, function(error) {
         expect(error).to.be.instanceof(Error);
         expect(error.details).to.be.instanceof(Array);
@@ -80,7 +81,7 @@ describe('Database Store', function() {
         done();
       })
       .catch(done);
-  })
+  });
 
   /* ------------------------------------------------------------------------ */
 
@@ -118,10 +119,10 @@ describe('Database Store', function() {
             value = created;
             vattr = attributes;
             done();
-          })
+          });
       })
       .catch(done);
-  })
+  });
 
   /* ------------------------------------------------------------------------ */
 
@@ -135,10 +136,10 @@ describe('Database Store', function() {
           .then(function(attributes) {
             expect(attributes).to.eql(vattr);
             done();
-          })
+          });
       })
       .catch(done);
-  })
+  });
 
   it('should find our saved value by its parent', function(done) {
     if (! value) return this.skip();
@@ -150,15 +151,14 @@ describe('Database Store', function() {
           .then(function(attributes) {
             expect(attributes).to.eql(vattr);
             done();
-          })
+          });
       })
       .catch(done);
-  })
+  });
 
   it('should update our saved value', function(done) {
     if (! value) return this.skip();
 
-    var temp = null;
     store.update(value.uuid, attributes2)
       .then(function(modified) {
         expect(modified).to.exist;
@@ -175,15 +175,15 @@ describe('Database Store', function() {
             value = modified;
             vattr = attributes;
             done();
-          })
+          });
       })
       .catch(done);
-  })
+  });
 
   it('should not update update if changes void validation', function(done) {
     if (! value) return this.skip();
     store.update(value.uuid, { invalid_key: true })
-      .then(function(modified) {
+      .then(function() {
         throw new Error('Object was invalid, but modified');
       }, function(error) {
         expect(error).to.be.instanceof(Error);
@@ -205,11 +205,10 @@ describe('Database Store', function() {
           .then(function(attributes) {
             expect(attributes).to.eql(vattr);
             done();
-          })
+          });
       })
       .catch(done);
-  })
-
+  });
 
   it('should delete our saved value', function(done) {
     if (! value) return this.skip();
@@ -229,10 +228,10 @@ describe('Database Store', function() {
             value = deleted;
             vattr = attributes;
             done();
-          })
+          });
       })
       .catch(done);
-  })
+  });
 
   it('should not return our deleted value by default', function(done) {
     if (! value) return this.skip();
@@ -242,7 +241,7 @@ describe('Database Store', function() {
         done();
       })
       .catch(done);
-  })
+  });
 
   it('should not return our value when not including deleted', function(done) {
     if (! value) return this.skip();
@@ -252,7 +251,7 @@ describe('Database Store', function() {
         done();
       })
       .catch(done);
-  })
+  });
 
 
   it('should return our value when including deleted', function(done) {
@@ -264,9 +263,9 @@ describe('Database Store', function() {
           .then(function(attributes) {
             expect(attributes).to.eql(vattr);
             done();
-          })
+          });
       })
       .catch(done);
-  })
+  });
 
 });

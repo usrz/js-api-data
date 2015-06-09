@@ -10,25 +10,25 @@
     "mocha": true
   },
   "rules": {
-    "camelcase": [ 1, {
+    "camelcase": [ 2, {
       "properties": "never"
       } ],
-    "curly": [ 1, "multi-line" ],
+    "curly": [ 2, "multi-line" ],
     "key-spacing": [ 2, {
         "beforeColon": false,
         "afterColon": true,
         "align": "value"
       } ],
-    "no-multi-spaces": [ 1, {
+    "no-multi-spaces": [ 2, {
         "exceptions": { "VariableDeclarator": true }
       } ],
     "no-unused-vars": [ 2, {
         "vars": "all",
         "args": "all"
       } ],
-    "no-use-before-define": [ 1, "nofunc" ],
-    "quotes": [ 1, "single", "avoid-escape" ],
-    "space-unary-ops": [ 1, {
+    "no-use-before-define": [ 2, "nofunc" ],
+    "quotes": [ 2, "single", "avoid-escape" ],
+    "space-unary-ops": [ 2, {
         "words": false,
         "nonwords": true
       } ]

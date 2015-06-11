@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "joi": "git://github.com/hapijs/joi.git",
-    "pg": "^4.3.0"
+    "pg": "^4.4.0"
   },
   "devDependencies": {
     "chai": "^3.0.0",

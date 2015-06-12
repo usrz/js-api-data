@@ -21,8 +21,8 @@ class DbObject {
     this.uuid = row.uuid;
     this.kind = row.kind;
     this.parent = row.parent;
-    this.created_at = row.created_at || null;
-    this.updated_at = row.updated_at || null;
+    this.created_at = row.created_at || new Date();
+    this.updated_at = row.updated_at || this.created_at;
     this.deleted_at = row.deleted_at || null;
 
     this[ENCRYPTION_KEY] = row.encryption_key;

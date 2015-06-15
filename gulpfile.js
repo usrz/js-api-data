@@ -15,6 +15,8 @@ gulp.task('mocha', function () {
     .pipe(mocha({ reporter: 'spec' }));
 });
 
-gulp.task('default', function(done) {
+gulp.task('full', function(done) {
   return sequence('mocha', 'eslint', done);
 });
+
+gulp.task('default', [ 'mocha' ]);

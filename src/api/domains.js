@@ -3,11 +3,11 @@
 /// 409 -> Conflict: resource already exist!
 
 const path = require('path');
-const Domains = require('./domains.js');
+//const Domains = require('./domains.js');
 const S = require('express-statuses');
-const promising = require('./promising.js');
+const promising = require('../promising.js');
 
-const DbStore = require('./db-store');
+const DbStore = require('../db-store');
 const joi = require('joi');
 
 const schema = joi.object({

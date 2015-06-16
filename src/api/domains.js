@@ -3,7 +3,6 @@
 /// 409 -> Conflict: resource already exist!
 
 const path = require('path');
-//const Domains = require('./domains.js');
 const S = require('express-statuses');
 const promising = require('../promising.js');
 
@@ -16,21 +15,20 @@ const schema = joi.object({
 });
 
 function validator(attributes) {
-  var result = joi.validate(attributes, schema, { abortEarly: false });
-  if (result.error) {
-    console.log('ERROR', result.error);
-    //return Promise.reject(result.error);
-    throw new S.BAD_REQUEST({error: result.error, details: result.error.details});
-  }
-  return result.value;
+  let result = joi.validate(attributes, schema, { abortEarly: false });
+  if (! result.error) return result.value;
+  throw new S.BAD_REQUEST({error: result.error, details: result.error.details});
 }
 
 exports = module.exports = function(keyManager, client) {
 
   let app = promising();
   let dbstore = new DbStore(keyManager, client, validator);
-  //, 'domain'
-  let domains = new DbStore.Simple(dbstore, 'domain'); //Domains(keyManager, client);
+  let domains = new DbStore.Simple(dbstore, 'domain');
+
+  app.get('/', function(req, res) {
+    throw new S.METHOD_NOT_ALLOWED();
+  });
 
   app.post('/', function(req, res) {
     console.log('BODY', req.originalUrl, req.body);

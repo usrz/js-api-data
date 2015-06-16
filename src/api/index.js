@@ -1,50 +1,65 @@
 'use strict';
 
-const express = require('express');
 const bodyParser = require('body-parser');
+const statuses = require('express-statuses');
+const express = require('express');
 
-const APP = Symbol('app');
+const log = require('errorlog')();
 
-/* Our error handler function */
-var errorHandler = function(err, req, res, next) {
-  console.log("ERROR", err.stack || err);
+const domains = require('./domains');
+const UUID = require('../uuid');
+
+
+/* Our error handler */
+function errorHandler(err, req, res, next) {
+
+  // Response status (default 500) and error
+  let status = statuses.INTERNAL_SERVER_ERROR;
+  let error = null;
   if (typeof err.status === 'number') {
     res.status(err.status);
+    status = statuses(err.status);
+    error = err.error;
   } else {
     res.status(500);
+    error = err;
   }
-  if (typeof err.toJSON === 'function') {
-    res.json(err).end();
-  } else {
-    res.end();
-  }
+
+  // Get a body for the error
+  var body = JSON.parse(JSON.stringify(err));
+  if (! body.status) body.status = status.status;
+  if (! body.message) body.message = status.message;
+  if (! body.id) body.id = req.id || UUID.v4();
+
+  // Log our error
+  log.error('Error in "%s"', req.originalUrl, body, error);
+
+  // Send the body back
+  res.json(body).end();
 }
 
-class Api {
-  constructor(keyManager, client) {
-    // Wrap our app...
-    const app = this[APP] = express();
+exports = module.exports = function api(keyManager, client) {
+  const app = express();
 
-    // Basic settings
-    app.set('etag', false);
-    app.set('x-powered-by', false);
+  // Basic settings
+  app.set('etag', false);
+  app.set('x-powered-by', false);
 
-    // Parse JSON bodies
-    app.use(bodyParser.json());
+  // Our request UUID
+  app.use(function(req, res, next) {
+    req.id = req.id || UUID.v4();
+    next();
+  });
 
-    // Our known handlers
-    app.use('/domains', require('./domains')(keyManager, client));
-  }
+  // Parse JSON bodies
+  app.use(bodyParser.json());
 
-  use() {
-    this[APP].use.apply(this[APP], arguments);
-    return this;
-  }
+  // Our known handlers
+  app.use('/domains', domains(keyManager, client));
 
-  build() {
-    this[APP].use(errorHandler);
-    return this[APP];
-  }
-}
+  // Error handler
+  app.use(errorHandler);
 
-exports = module.exports = Api;
+  // Return our app
+  return app;
+};

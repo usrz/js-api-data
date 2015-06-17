@@ -26,13 +26,14 @@ function errorHandler(err, req, res, next) {
   }
 
   // Get a body for the error
-  var body = JSON.parse(JSON.stringify(err));
+  let body = JSON.parse(JSON.stringify(err));
   if (! body.status) body.status = status.status;
   if (! body.message) body.message = status.message;
   if (! body.id) body.id = req.id || UUID.v4();
 
   // Log our error
-  log.error('Error in "%s"', req.originalUrl, body, error);
+  let logger = body.status < 500 ? log.warn : log.error;
+  logger.call(log, 'Error in "%s"', req.originalUrl, body, error);
 
   // Send the body back
   res.json(body).end();
@@ -48,6 +49,7 @@ exports = module.exports = function api(keyManager, client) {
   // Our request UUID
   app.use(function(req, res, next) {
     req.id = req.id || UUID.v4();
+    res.header('X-Request-ID', req.id);
     next();
   });
 

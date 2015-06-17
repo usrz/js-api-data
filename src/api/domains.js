@@ -9,16 +9,15 @@ const promising = require('../promising.js');
 const DbStore = require('../db-store');
 const joi = require('joi');
 
-const schema = joi.object({
+const validator = require('./validation')(joi.object({
     name:        joi.string().required().replace(/\s+/g, ' ').trim().min(1).max(1024),
     domain_name: joi.string().required().regex(/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i)
-});
+}));
 
-function validator(attributes) {
-  let result = joi.validate(attributes, schema, { abortEarly: false });
-  if (! result.error) return result.value;
-  throw new S.BAD_REQUEST({error: result.error, details: result.error.details});
+function created(domain) {
+
 }
+
 
 exports = module.exports = function(keyManager, client) {
 
@@ -31,13 +30,13 @@ exports = module.exports = function(keyManager, client) {
   });
 
   app.post('/', function(req, res) {
-    console.log('BODY', req.originalUrl, req.body);
     return domains.create(null, req.body)
       .then(function(domain) {
         if (! domain) throw new S.NOT_FOUND();
 
         res.header('Last-Modified', domain.updated_at.toUTCString());
         res.header('Location', path.join(req.originalUrl, domain.uuid));
+        res.status(S.CREATED.CODE);
         return domain.attributes();
       });
   });

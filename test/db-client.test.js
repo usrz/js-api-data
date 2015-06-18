@@ -1,7 +1,9 @@
 'use strict';
 
 const expect = require('chai').expect;
-const DbClient = require('../src/db-client');
+const db = require('../src/db');
+const Client = db.Client;
+const ClientError = db.ClientError;
 
 describe('Database Client', function() {
 
@@ -22,7 +24,7 @@ describe('Database Client', function() {
   it('should handle misconnections', function(done) {
     queries.splice(0);
 
-    var xclient = new DbClient('postgres://localhost:9999/foo');
+    var xclient = new Client('postgres://localhost:9999/foo');
     xclient.on('acquired', queries.push.bind(queries, 'acquired'));
     xclient.on('released', queries.push.bind(queries, 'released'));
     xclient.on('query', queries.push.bind(queries, 'query'));
@@ -33,7 +35,8 @@ describe('Database Client', function() {
         return done('This should not connect');
       })
       .catch(function(error) {
-        expect(error.name).to.equal('DbError');
+        expect(error).to.be.instanceof(ClientError);
+        expect(error.name).to.equal('ClientError');
         expect(error.message).to.equal('Error connecting to postgres://localhost:9999/foo');
         expect(error.cause).to.be.instanceof(Error);
         expect(error.cause.message).to.match(/ECONNREFUSED/);
@@ -109,7 +112,8 @@ describe('Database Client', function() {
       })
 
       .catch(function(error) {
-        expect(error.name).to.equal('DbError');
+        expect(error).to.be.instanceof(ClientError);
+        expect(error.name).to.equal('ClientError');
         expect(error.message).to.match(/^Error executing query "XELECT 4 AS num" with 0 parameters/);
         expect(error.cause).to.be.instanceof(Error);
         expect(error.cause.message).to.match(/XELECT/);
@@ -281,7 +285,8 @@ describe('Database Client', function() {
       })
 
       .catch(function(error) {
-        expect(error.name).to.equal('DbError');
+        expect(error).to.be.instanceof(ClientError);
+        expect(error.name).to.equal('ClientError');
         expect(error.message).to.match(/^Error executing query "XELECT 4 AS num" with 0 parameters/);
         expect(error.cause).to.be.instanceof(Error);
         expect(error.cause.message).to.match(/XELECT/);

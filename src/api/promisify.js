@@ -2,14 +2,15 @@
 
 const express = require('express').Router;
 const methods = require('methods').slice(0).concat('all');
+const S = require('express-statuses');
 
-exports = module.exports = function(options) {
+exports = module.exports = function(router, options) {
+  // Simpel check
+  if (typeof router !== 'function') throw new Error('Invalid router/application');
+
   // Options, default "mergeParams" is true
   if (! options) options = {};
   if (! options.hasOwnProperty('mergeParams')) options.mergeParams = true;
-
-  // Create a router
-  let router = express(options);
 
   // Override our methods
   methods.forEach(function(method) {
@@ -29,7 +30,8 @@ exports = module.exports = function(options) {
       callbacks.forEach(function(callback) {
         args.push(function(req, res, next) {
           try {
-            var promise = callback(req, res, next);
+            var self = { req, res, next };
+            var promise = callback.call(self, req, res, next);
             if (promise) {
               if (typeof promise.catch === 'function') promise.catch(next);
               if (typeof promise.then === 'function') {

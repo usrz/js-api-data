@@ -1,6 +1,6 @@
 'use strict';
 
-const DbClient = require('../src/db-client');
+const Client = require('../src/db').Client;
 const uuid = require('../src/uuid');
 const pg = require('pg');
 
@@ -15,7 +15,7 @@ exports = module.exports = function TestDB(ddl, host) {
 
   this.ro_uri = `postgres://${roUser}:ro_password@${host}/${database}`;
   this.rw_uri = `postgres://${rwUser}:rw_password@${host}/${database}`;
-  this.client = new DbClient(this.ro_uri, this.rw_uri);
+  this.client = new Client(this.ro_uri, this.rw_uri);
 
   this.before = function before(done) {
     pg.end();

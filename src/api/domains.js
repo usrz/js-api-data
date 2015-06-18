@@ -2,26 +2,22 @@
 
 /// 409 -> Conflict: resource already exist!
 
-const path = require('path');
 const S = require('express-statuses');
-const promising = require('../promising.js');
-
-const DbStore = require('../db-store');
+const express = require('express');
+const path = require('path');
 const joi = require('joi');
+
+const promisify = require('./promisify.js');
+const DbStore = require('../db-store');
 
 const validator = require('./validation')(joi.object({
     name:        joi.string().required().replace(/\s+/g, ' ').trim().min(1).max(1024),
     domain_name: joi.string().required().regex(/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i)
 }));
 
-function created(domain) {
-
-}
-
-
 exports = module.exports = function(keyManager, client) {
 
-  let app = promising();
+  let app = promisify(new express.Router());
   let dbstore = new DbStore(keyManager, client, validator);
   let domains = new DbStore.Simple(dbstore, 'domain');
 
@@ -29,7 +25,7 @@ exports = module.exports = function(keyManager, client) {
     throw new S.METHOD_NOT_ALLOWED();
   });
 
-  app.post('/', function(req, res) {
+  app.post('/', function(req, res, next) {
     return domains.create(null, req.body)
       .then(function(domain) {
         if (! domain) throw new S.NOT_FOUND();

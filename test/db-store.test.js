@@ -4,9 +4,9 @@
 const expect = require('chai').expect;
 const joi = require('joi');
 
-const KeyManager = require('../src/key-manager');
-const DbObject = require('../src/db-object');
-const DbStore = require('../src/db-store');
+const KeyManager = require('../src/db').KeyManager;
+const Entity = require('../src/db').Entity;
+const Store = require('../src/db').Store;
 
 describe('Database Store', function() {
 
@@ -34,18 +34,18 @@ describe('Database Store', function() {
       if (result.error) return Promise.reject(result.error);
       return result.value;
     };
-    store = new DbStore(keyManager, testdb.client, validator);
+    store = new Store(keyManager, testdb.client, validator);
   });
   after(testdb.after);
 
   /* ------------------------------------------------------------------------ */
 
   it('should always construct a valid object', function() {
-    expect(function() { return new DbObject(); })
+    expect(function() { return new Entity(); })
       .to.throw('No row for DB entity');
-    expect(function() { return new DbObject({}); })
+    expect(function() { return new Entity({}); })
       .to.throw('No UUID for DB entity');
-    expect(function() { return new DbObject({ uuid: 'gonzo' }); })
+    expect(function() { return new Entity({ uuid: 'gonzo' }); })
       .to.throw('No parent UUID for DB entity');
   });
 

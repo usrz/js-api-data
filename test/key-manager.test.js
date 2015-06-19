@@ -2,7 +2,7 @@
 'use strict';
 
 const expect = require('chai').expect;
-const KeyManager = require('../src/key-manager');
+const KeyManager = require('../src/db').KeyManager;
 
 describe('Encryption Key Manager', function() {
 

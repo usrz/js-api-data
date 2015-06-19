@@ -3,8 +3,8 @@
 
 const expect = require('chai').expect;
 
-const KeyManager = require('../src/key-manager');
-const DbIndex = require('../src/db-index');
+const KeyManager = require('../src/db').KeyManager;
+const Indexer = require('../src/db').Indexer;
 
 describe('Database Index', function() {
 
@@ -34,7 +34,7 @@ describe('Database Index', function() {
     // Must be consistent for equality checks below!
     var key = new Buffer('WkOxuxUixRlWNZwT8vBYveHEql82Zg5d', 'utf8');
     var keyManager = new KeyManager(key, testdb.client);
-    index = new DbIndex(keyManager, testdb.client);
+    index = new Indexer(keyManager, testdb.client);
     client = testdb.client;
   });
   after(testdb.after);

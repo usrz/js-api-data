@@ -3,7 +3,7 @@
 const KeyManager = require('./key-manager');
 
 /* ========================================================================== *
- * DB OBJECT CLASS                                                            *
+ * DB ENTITY CLASS                                                            *
  * ========================================================================== */
 
 const ENCRYPTION_KEY = Symbol('encryption_key');
@@ -11,11 +11,11 @@ const ENCRYPTED_DATA = Symbol('encrypted_data');
 const KEY_MANAGER = Symbol('key_manager');
 const ATTRIBUTES = Symbol('attributes');
 
-class DbObject {
+class Entity {
   constructor (row, keyManager) {
-    if (! row) throw new Error('No row for DB object');
-    if (! row.uuid) throw new Error('No UUID for DB object');
-    if (! row.parent) throw new Error('No parent UUID for DB object');
+    if (! row) throw new Error('No row for DB entity');
+    if (! row.uuid) throw new Error('No UUID for DB entity');
+    if (! row.parent) throw new Error('No parent UUID for DB entity');
     if (! (keyManager instanceof KeyManager)) throw new Error('Invalid key manager');
 
     this.uuid = row.uuid;
@@ -41,7 +41,7 @@ class DbObject {
   }
 
   toString() {
-    return 'DbObject[' + this.kind + ':' + this.uuid + ']';
+    return 'Entity[' + this.kind + ':' + this.uuid + ']';
   }
 }
 
@@ -49,4 +49,4 @@ class DbObject {
  * EXPORTS                                                                    *
  * ========================================================================== */
 
-exports = module.exports = DbObject;
+exports = module.exports = Entity;

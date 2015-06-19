@@ -2,4 +2,7 @@
 
 console.warn(new Error('Module "db-index" is deprecated').stack);
 
-exports = module.exports = require('./db').Index;
+const DbIndex = require('./db').Indexer;
+DbIndex.IndexError = require('./db').IndexingError;
+
+exports = module.exports = DbIndex;

@@ -8,7 +8,7 @@ const path = require('path');
 const joi = require('joi');
 
 const promisify = require('./promisify.js');
-const DbStore = require('../db-store');
+const db = require('../db');
 
 const validator = require('./validation')(joi.object({
     name:        joi.string().required().replace(/\s+/g, ' ').trim().min(1).max(1024),
@@ -18,8 +18,8 @@ const validator = require('./validation')(joi.object({
 exports = module.exports = function(keyManager, client) {
 
   let app = promisify(new express.Router());
-  let dbstore = new DbStore(keyManager, client, validator);
-  let domains = new DbStore.Simple(dbstore, 'domain');
+  let dbstore = new db.Store(keyManager, client, validator);
+  let domains = new db.Factory(dbstore, 'domain');
 
   app.get('/', function(req, res) {
     throw new S.METHOD_NOT_ALLOWED();

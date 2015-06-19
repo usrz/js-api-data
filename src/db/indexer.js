@@ -1,35 +1,13 @@
 'use strict';
 
-const KeyManager = require('./key-manager');
-const DbClient   = require('./client');
-const DbObject   = require('./db-object');
-const UUID       = require('../uuid');
-const util       = require('util');
+const util          = require('util');
 
-/* ========================================================================== *
- * INDEX ERROR, WHEN DUPLICATES ARE FOUND                                     *
- * ========================================================================== */
+const Client        = require('./client');
+const Entity        = require('./entity');
+const IndexingError = require('./indexing-error');
+const KeyManager    = require('./key-manager');
 
-class IndexError extends Error {
-  constructor(scope, owner, duplicates) {
-    var message = `Duplicate values indexing attributes for "${owner}" in `
-                + (scope ? `scope "${scope}"` : 'NULL scope');
-    for (var key in duplicates) message += `\n  "${key}" owned by "${duplicates[key]}"`;
-    super(message);
-
-    /* Remember our properties */
-    this.duplicates = duplicates;
-    this.message = message;
-    this.scope = scope;
-    this.owner = owner;
-
-    /* Capture stack */
-    Error.captureStackTrace(this, IndexError);
-  };
-}
-
-IndexError.prototype.message = 'Index Error';
-IndexError.prototype.name = 'IndexError';
+const UUID          = require('../uuid');
 
 /* ========================================================================== *
  * DB INDEX CLASS                                                             *
@@ -39,10 +17,10 @@ const KEY_MANAGER = Symbol('key_manager');
 const NAMESPACE   = Symbol('namespace');
 const CLIENT      = Symbol('client');
 
-class DbIndex {
+class Indexer {
   constructor(keyManager, client) {
     if (! (keyManager instanceof KeyManager)) throw new Error('Invalid key manager');
-    if (! (client instanceof DbClient)) throw new Error('Database client not specified or invalid');
+    if (! (client instanceof Client)) throw new Error('Database client not specified or invalid');
 
     // Simple function to get namespace from scope
     this[NAMESPACE] = function namespace(scope) {
@@ -50,10 +28,10 @@ class DbIndex {
         return keyManager.namespace(UUID.NULL);
       } else if (util.isString(scope)) {
         return keyManager.namespace(scope);
-      } else if (scope instanceof DbObject) {
+      } else if (scope instanceof Entity) {
         return keyManager.namespace(scope.uuid);
       } else {
-        throw new Error('Scope must be a string or DbObject');
+        throw new Error('Scope must be a string or Entity');
       }
     };
 
@@ -141,10 +119,10 @@ class DbIndex {
             if (result.rowCount > 0) {
               var duplicates = {};
               result.rows.forEach(function(row) {
-                var previousOwner = new DbObject(row, self[KEY_MANAGER]);
+                var previousOwner = new Entity(row, self[KEY_MANAGER]);
                 duplicates[keys[row.value]] = previousOwner;
               });
-              throw new IndexError(scope, owner, duplicates);
+              throw new IndexingError(scope, owner, duplicates);
             }
 
             // Well, good, no duplicates
@@ -208,7 +186,7 @@ class DbIndex {
             var objects = [];
             if (result && result.rows) {
               result.rows.forEach(function(row) {
-                objects.push(new DbObject(row, self[KEY_MANAGER]));
+                objects.push(new Entity(row, self[KEY_MANAGER]));
               });
             }
             return objects;
@@ -268,7 +246,7 @@ class DbIndex {
         resolve(query(sql, params)
           .then(function(result) {
             if ((! result) || (! result.rows) || (! result.rows[0])) return null;
-            return new DbObject(result.rows[0], self[KEY_MANAGER]);
+            return new Entity(result.rows[0], self[KEY_MANAGER]);
           }));
     });
   }
@@ -306,5 +284,4 @@ class DbIndex {
  * EXPORTS                                                                    *
  * ========================================================================== */
 
-DbIndex.IndexError = IndexError;
-exports = module.exports = DbIndex;
+exports = module.exports = Indexer;

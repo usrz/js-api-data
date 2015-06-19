@@ -14,7 +14,7 @@ const pg = (function() {
 
 // EventEmitter and Utils from Node
 const EventEmitter = require('events').EventEmitter;
-const DbError = require('./client-error');
+const ClientError = require('./client-error');
 const util = require('util');
 
 /* ========================================================================== *
@@ -25,7 +25,7 @@ class Client extends EventEmitter {
   constructor(roUri, rwUri) {
     super();
 
-    if (! roUri) throw new DbError('Client connection URI not specified');
+    if (! roUri) throw new ClientError('Client connection URI not specified');
     if (! rwUri) rwUri = roUri;
     this.ro_uri = roUri;
     this.rw_uri = rwUri;
@@ -115,7 +115,7 @@ function connect(uri, callback) {
     pg.connect(uri, function(err, client, done) {
       if (err) {
         self.emit('exception', err);
-        return reject(new DbError('Error connecting to ' + uri, err));
+        return reject(new ClientError('Error connecting to ' + uri, err));
       }
 
       // Emit our "connected"
@@ -135,7 +135,7 @@ function connect(uri, callback) {
                 message += '\n  - $' + i + ' := ' + util.inspect(params[i]);
               }
               message += '\n  - DB := ' + uri;
-              return rejectQuery(new DbError(message, error));
+              return rejectQuery(new ClientError(message, error));
             }
 
             self.emit('query', statement, params);

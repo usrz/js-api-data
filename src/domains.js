@@ -1,6 +1,6 @@
 'use strict';
 
-const DbStore = require('./db-store');
+const db = require('./db');
 const joi = require('joi');
 
 const schema = joi.object({
@@ -8,9 +8,9 @@ const schema = joi.object({
     domain_name: joi.string().required().regex(/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i)
 });
 
-class Domains extends DbStore.Simple {
+class Domains extends db.Factory {
   constructor(keyManager, client) {
-    super(new DbStore(keyManager, client, validator), 'domain');
+    super(new db.Store(keyManager, client, validator), 'domain');
 
     function validator(attributes) {
       var result = joi.validate(attributes, schema, { abortEarly: false });

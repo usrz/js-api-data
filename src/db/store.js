@@ -1,8 +1,8 @@
 'use strict';
 
 const KeyManager = require('./key-manager');
-const DbClient = require('./client');
-const DbObject = require('./db-object');
+const Client = require('./client');
+const Entity = require('./entity');
 const UUID = require('../uuid');
 
 const EventEmitter = require('events').EventEmitter;
@@ -49,10 +49,10 @@ function merge(one, two) {
   return result;
 }
 
-// Get the UUID string from a DBObject, string, or UUID
+// Get the UUID string from a Entity, string, or UUID
 function getUuid(what) {
   if (! what) return null;
-  if (what instanceof DbObject) return UUID.validate(what.uuid);
+  if (what instanceof Entity) return UUID.validate(what.uuid);
   if (what instanceof UUID) return what.toString();
   if (util.isString(what)) return UUID.validate(what);
   return null;
@@ -70,7 +70,7 @@ class Store extends EventEmitter {
     if (! (keyManager instanceof KeyManager)) throw new Error('Invalid key manager');
 
     // Access to our database (RO/RW)
-    if (! (client instanceof DbClient)) throw new Error('Database client not specified or invalid');
+    if (! (client instanceof Client)) throw new Error('Database client not specified or invalid');
 
     // Check validator
     var validate;
@@ -159,7 +159,7 @@ class Store extends EventEmitter {
     return query(sql, uuid)
       .then(function(result) {
         if ((! result) || (! result.rows) || (! result.rows[0])) return null;
-        return new DbObject(result.rows[0], self[KEY_MANAGER]);
+        return new Entity(result.rows[0], self[KEY_MANAGER]);
       });
   }
 
@@ -213,7 +213,7 @@ class Store extends EventEmitter {
         if ((! result) || (! result.rows) || (! result.rows[0])) return {};
         var objects = {};
         for (var i in result.rows) {
-          var object = new DbObject(result.rows[i], self[KEY_MANAGER]);
+          var object = new Entity(result.rows[i], self[KEY_MANAGER]);
           objects[object.uuid] = object;
         }
         return objects;
@@ -269,7 +269,7 @@ class Store extends EventEmitter {
       // Wrap the DB returned row
       .then(function(result) {
         if ((! result) || (! result.rows) || (! result.rows[0])) return null;
-        var object = new DbObject(result.rows[0], self[KEY_MANAGER]);
+        var object = new Entity(result.rows[0], self[KEY_MANAGER]);
 
         // Decrypt (triple check)
         return object.attributes()
@@ -327,7 +327,7 @@ class Store extends EventEmitter {
             return query(sql, uuid, encrypted.key, encrypted.data)
               .then(function(result) {
                 if ((! result) || (! result.rows) || (! result.rows[0])) return null;
-                var object = new DbObject(result.rows[0], self[KEY_MANAGER]);
+                var object = new Entity(result.rows[0], self[KEY_MANAGER]);
 
                 // Decrypt (triple check)
                 return object.attributes()

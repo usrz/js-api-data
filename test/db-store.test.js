@@ -42,11 +42,11 @@ describe('Database Store', function() {
 
   it('should always construct a valid object', function() {
     expect(function() { return new DbObject(); })
-      .to.throw('No row for DB object');
+      .to.throw('No row for DB entity');
     expect(function() { return new DbObject({}); })
-      .to.throw('No UUID for DB object');
+      .to.throw('No UUID for DB entity');
     expect(function() { return new DbObject({ uuid: 'gonzo' }); })
-      .to.throw('No parent UUID for DB object');
+      .to.throw('No parent UUID for DB entity');
   });
 
   /* ------------------------------------------------------------------------ */

@@ -1,8 +1,7 @@
  'use strict';
 
 const Credentials = require('./credentials');
-const DbStore = require('./db-store');
-const DbIndex = require('./db-index');
+const db = require('./db');
 
 const joi = require('joi');
 
@@ -23,12 +22,12 @@ const schema = joi.object({
 
 const INDEX = Symbol('index');
 
-class Users extends DbStore.Simple {
+class Users extends db.Factory {
   constructor(keyManager, client) {
 
     // Local variables for the constructor
-    var store = new DbStore(keyManager, client, validator, indexer);
-    var index = new DbIndex(keyManager, client);
+    var store = new db.Store(keyManager, client, validator, indexer);
+    var index = new db.Indexer(keyManager, client);
     super(store, 'user');
 
     // A function that will validate the attributes

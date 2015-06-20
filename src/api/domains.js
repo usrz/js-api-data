@@ -21,7 +21,7 @@ exports = module.exports = function(keyManager, client) {
   let dbstore = new db.Store(keyManager, client, validator);
   let domains = new db.Factory(dbstore, 'domain');
 
-  app.get('/', function(req, res) {
+  app.get('/', function(req, res, next) {
     throw new S.METHOD_NOT_ALLOWED();
   });
 
@@ -37,7 +37,7 @@ exports = module.exports = function(keyManager, client) {
       });
   });
 
-  app.get('/:uuid', function(req, res) {
+  app.get('/:uuid', function(req, res, next) {
     return domains.get(req.params.uuid)
       .then(function(domain) {
         if (! domain) throw new S.NOT_FOUND();
@@ -46,7 +46,7 @@ exports = module.exports = function(keyManager, client) {
       });
   });
 
-  app.put('/:uuid', function(req, res) {
+  app.put('/:uuid', function(req, res, next) {
     return domains.modify(req.params.uuid, req.body)
       .then(function(domain) {
         if (! domain) throw new S.NOT_FOUND();

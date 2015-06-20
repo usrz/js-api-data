@@ -1,8 +1,6 @@
 'use strict';
 
-const express = require('express').Router;
 const methods = require('methods').slice(0).concat('all');
-const S = require('express-statuses');
 
 exports = module.exports = function(router, options) {
   // Simpel check
@@ -30,8 +28,7 @@ exports = module.exports = function(router, options) {
       callbacks.forEach(function(callback) {
         args.push(function(req, res, next) {
           try {
-            var self = { req, res, next };
-            var promise = callback.call(self, req, res, next);
+            var promise = callback(req, res, next);
             if (promise) {
               if (typeof promise.catch === 'function') promise.catch(next);
               if (typeof promise.then === 'function') {

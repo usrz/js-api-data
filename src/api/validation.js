@@ -1,4 +1,4 @@
-'use strict'
+'use strict';
 
 const S = require('express-statuses');
 const joi = require('joi');
@@ -16,5 +16,5 @@ exports = module.exports = function validator(schema) {
     }
 
     throw new S.BAD_REQUEST({error: result.error, details: details});
-  }
-}
+  };
+};

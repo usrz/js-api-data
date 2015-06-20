@@ -1,5 +1,6 @@
 {
   "ecmaFeatures": {
+    "forOf": true,
     "classes": true,
     "blockBindings": true,
     "superInFunctions": true,
@@ -24,7 +25,7 @@
       } ],
     "no-unused-vars": [ 2, {
         "vars": "all",
-        "args": "all"
+        "args": "none"
       } ],
     "no-use-before-define": [ 2, "nofunc" ],
     "quotes": [ 2, "single", "avoid-escape" ],

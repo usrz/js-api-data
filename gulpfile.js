@@ -6,8 +6,7 @@ var sequence = require('run-sequence');
 gulp.task('eslint', function () {
   return gulp.src(['src/**/*.js', 'test/**/*.js'])
     .pipe(eslint({ configFile: 'eslint.json' }))
-    .pipe(eslint.format())
-    .pipe(eslint.failOnError());
+    .pipe(eslint.format());
 });
 
 gulp.task('mocha', function () {

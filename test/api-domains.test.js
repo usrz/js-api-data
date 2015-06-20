@@ -1,12 +1,9 @@
 'use strict';
 
 const errorlog = require('errorlog');
-const bodyParser = require('body-parser');
-const express = require('express');
 const expect = require('chai').expect;
 const KeyManager = require('../src/db').KeyManager;
 const api = require('../src/api');
-//const DomainsApi = require('../src/api-domains');
 const supertest = require('supertest');
 const UUID = require('../src/uuid');
 
@@ -32,10 +29,10 @@ describe('Domains API', function() {
     http.get('/domains')
         .expect(405)
         .expect(function(res) {
-          expect(UUID.validate(res.body.id)).to.exist;
+          expect(UUID.validate(res.body.id)).not.to.equal(null);
           expect(res.body.id).to.equal(res.headers['x-request-id']);
           expect(res.body).to.include({
-            status: 405,
+            status:  405,
             message: 'Method Not Allowed'
           });
         })
@@ -46,10 +43,10 @@ describe('Domains API', function() {
     http.get('/domains/' + UUID.v4())
         .expect(404)
         .expect(function(res) {
-          expect(UUID.validate(res.body.id)).to.exist;
+          expect(UUID.validate(res.body.id)).not.to.equal(null);
           expect(res.body.id).to.equal(res.headers['x-request-id']);
           expect(res.body).to.include({
-            status: 404,
+            status:  404,
             message: 'Not Found'
           });
         })
@@ -58,13 +55,13 @@ describe('Domains API', function() {
 
   it('should not create an invalid domain', function(done) {
     http.post('/domains')
-        .send({foo: "bar"})
+        .send({foo: 'bar'})
         .expect(400)
         .expect(function(res) {
-          expect(UUID.validate(res.body.id)).to.exist;
+          expect(UUID.validate(res.body.id)).not.to.equal(null);
           expect(res.body.id).to.equal(res.headers['x-request-id']);
           expect(res.body).to.include({
-            status: 400,
+            status:  400,
             message: 'Bad Request'
           });
           expect(res.body.details).to.eql({
@@ -78,13 +75,13 @@ describe('Domains API', function() {
 
   it('should create a valid domain', function(done) {
     http.post('/domains')
-        .send({name: "name", domain_name: "example.org"})
+        .send({name: 'name', domain_name: 'example.org'})
         .expect(201)
         .expect(function(res) {
-          expect(UUID.validate(res.headers['x-request-id'])).to.exist;
-          expect(res.headers['location']).to.match(/^\/domains\/.*/);
-          expect(UUID.validate(res.headers['location'].substr(9))).to.exist;
-          expect(res.body).to.eql({name: "name", domain_name: "example.org"});
+          expect(UUID.validate(res.headers['x-request-id'])).not.to.equal(null);
+          expect(res.headers.location).to.match(/^\/domains\/.*/);
+          expect(UUID.validate(res.headers.location.substr(9))).not.to.equal(null);
+          expect(res.body).to.eql({name: 'name', domain_name: 'example.org'});
         })
         .end(done);
   });
